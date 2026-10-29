@@ -1,0 +1,2537 @@
+// DCT CRM - Enterprise Multi-Tenant CRM Platform
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANT & AUTH
+// ============================================
+
+model Tenant {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  companyCode String  @unique
+  domain      String?
+  logo        String?
+  email       String?
+  phone       String?
+  website     String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?
+  timezone    String?
+  currency    String?
+  description String?
+  settings    Json?
+  isActive    Boolean @default(true)
+
+  companyStartDate  DateTime?
+  companyExpiryDate DateTime?
+
+  maxTotalUsers     Int       @default(10)
+  maxAdminUsers     Int       @default(2)
+  packageName       String?
+  packageStatus     String    @default("active")
+  packageStartDate  DateTime?
+  packageExpiryDate DateTime?
+  packageNotes      String?
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                    User[]
+  roles                    Role[]
+  profiles                 Profile[]
+  permissionSets           PermissionSet[]
+  newPermissionSets        NewPermissionSet[]
+  queues                   Queue[]
+  auditLogs                AuditLog[]
+  reports                  Report[]
+  reportFolders            ReportFolder[]
+  reportShares             ReportShare[]
+  reportFavorites          ReportFavorite[]
+  reportFolderShares       ReportFolderShare[]
+  reportFolderFavorites    ReportFolderFavorite[]
+  dashboardFolders         DashboardFolder[]
+  dashboardFolderFavorites DashboardFolderFavorite[]
+  dashboards               Dashboard[]
+  dashboardShares          DashboardShare[]
+  dashboardFavorites       DashboardFavorite[]
+  dashboardSubscriptions   DashboardSubscription[]
+  workflows                Workflow[]
+  automations              Automation[]
+  notifications            Notification[]
+  leads                    Lead[]
+  leadStatusSettings       LeadStatusSetting[]
+  companies                Company[]
+  enquiries                Enquiry[]
+  siteVisits               SiteVisit[]
+  quotations               Quotation[]
+  bookings                 Booking[]
+  receipts                 Receipt[]
+  projects                 Project[]
+  projectLayouts           ProjectLayout[]
+  units                    Unit[]
+  followUps                FollowUp[]
+  activities               Activity[]
+  callDetails              CallDetail[]
+  aiConversations          AIConversation[]
+  objectDefinitions        ObjectDefinition[]
+  customRecords            CustomRecord[]
+  permissionSetGroups      PermissionSetGroup[]
+  objectSharingSettings    ObjectSharingSetting[]
+  sharingRules             SharingRule[]
+  recordShares             RecordShare[]
+  recordTeamMembers        RecordTeamMember[]
+  leadOwnerHistories       LeadOwnerHistory[]
+  sequences                Sequence[]
+  rrQueues                 RRQueue[]                 @relation("RRQueueTenant")
+  rrQueueMembers           RRQueueMember[]           @relation("RRQueueMemberTenant")
+  rrQueueHistory           RRQueueHistory[]          @relation("RRQueueHistoryTenant")
+  cpPortalAccounts         CPPortalAccount[]
+  greAuditEvents           GREAuditEvent[]
+  greLinks                 GRELink[]
+  greSessions              GRESession[]
+  greForms                 GreForm[]
+  greRegistrationSessions  GreSession[]
+  roundRobinConfigs        RoundRobinConfig[]
+  roundRobinMembers        RoundRobinMember[]
+
+  @@index([slug])
+  @@index([companyCode])
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+  email                String
+  passwordHash         String
+  firstName            String
+  lastName             String
+  phone                String?
+  avatar               String?
+  isActive             Boolean   @default(true)
+  isSuperAdmin         Boolean   @default(false)
+  profileId            String?
+  profile              Profile?  @relation(fields: [profileId], references: [id])
+  lastLoginAt          DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  roles                    UserRole[]
+  ownedDashboards          Dashboard[]                @relation("DashboardOwner")
+  dashboardShares          DashboardShare[]
+  dashboardFavorites       DashboardFavorite[]
+  dashboardFolderFavorites DashboardFolderFavorite[]
+  dashboardSubscriptions   DashboardSubscription[]
+  roleId                   String?
+  role                     Role?                      @relation("UserPrimaryRole", fields: [roleId], references: [id])
+  assignedLeads            Lead[]                     @relation("LeadOwner")
+  ownedEnquiries           Enquiry[]                  @relation("EnquiryOwner")
+  createdLeads             Lead[]                     @relation("LeadCreator")
+  assignedSiteVisits       SiteVisit[]                @relation("SvAssignee")
+  createdSiteVisits        SiteVisit[]                @relation("SvCreator")
+  completedSiteVisits      SiteVisit[]                @relation("SvCompletedBy")
+  cancelledSiteVisits      SiteVisit[]                @relation("SvCancelledBy")
+  createdQuotations        Quotation[]                @relation("QuotationCreator")
+  createdBookings          Booking[]                  @relation("BookingCreator")
+  ownedBookings            Booking[]                  @relation("BookingOwner")
+  completedWelcomeCalls    Booking[]                  @relation("BookingWelcomeCallCompleter")
+  createdReceipts          Receipt[]                  @relation("ReceiptCreator")
+  reviewedReceipts         Receipt[]                  @relation("ReceiptReviewer")
+  followUps                FollowUp[]
+  assignedFollowUps        FollowUp[]                 @relation("FollowUpAssignee")
+  activities               Activity[]
+  createdCallDetails       CallDetail[]               @relation("CallDetailCreator")
+  modifiedCallDetails      CallDetail[]               @relation("CallDetailModifier")
+  ownedCallDetails         CallDetail[]               @relation("CallDetailOwner")
+  assignedActivities       Activity[]                 @relation("ActivityAssignee")
+  aiConversations          AIConversation[]
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+  ownedCustomRecords       CustomRecord[]
+  permissionSetAssignments UserPermissionAssignment[]
+  directPermissions        UserDirectPermission[]
+  permissionSetGroups      UserPermissionSetGroup[]
+  recordShares             RecordShare[]
+  teamMemberships          RecordTeamMember[]
+  prevLeadOwnerHistory     LeadOwnerHistory[]         @relation("PrevLeadOwner")
+  newLeadOwnerHistory      LeadOwnerHistory[]         @relation("NewLeadOwner")
+  leadHistoryChanges       LeadOwnerHistory[]
+  ownedRRQueues            RRQueue[]                  @relation("RRQueueOwner")
+  createdRRQueues          RRQueue[]                  @relation("RRQueueCreatedBy")
+  updatedRRQueues          RRQueue[]                  @relation("RRQueueUpdatedBy")
+  rrQueueMembers           RRQueueMember[]            @relation("RRQueueMemberUser")
+  rrQueueHistoryEntries    RRQueueHistory[]           @relation("RRQueueHistoryUser")
+  cpPortalNotes            CPPortalNote[]
+  greLinks                 GRELink[]
+  createdGreForms          GreForm[]                  @relation("GreFormCreator")
+  roundRobinMembers        RoundRobinMember[]
+  ownedUnits               Unit[]                     @relation("UnitOwner")
+  createdUnits             Unit[]                     @relation("UnitCreator")
+  modifiedUnits            Unit[]                     @relation("UnitModifier")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users            UserRole[]
+  dashboardShares  DashboardShare[]
+  primaryUsers     User[]              @relation("UserPrimaryRole")
+  parentRoleId     String?
+  parentRole       Role?               @relation("RoleHierarchy", fields: [parentRoleId], references: [id])
+  childRoles       Role[]              @relation("RoleHierarchy")
+  permissionSets   PermissionSetRole[]
+  objectPerms      ObjectPermission[]
+  fieldPerms       FieldPermission[]
+  sharingRulesFrom SharingRule[]       @relation("SharingRuleFromRole")
+  sharingRulesTo   SharingRule[]       @relation("SharingRuleToRole")
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+}
+
+model Profile {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  name             String
+  description      String?
+  isDefault        Boolean  @default(false)
+  isAdmin          Boolean  @default(false)
+  isGlobal         Boolean  @default(false)
+  leadStatusAccess Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users              User[]
+  permissionSets     PermissionSet[]
+  profilePermissions UserProfilePermission[]
+  objectPermissions  ProfileObjectPermission[]
+  fieldPermissions   ProfileFieldPermission[]
+  dashboardShares    DashboardProfileShare[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model PermissionSet {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id])
+  name        String
+  description String?
+  objectName  String
+  permissions Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles PermissionSetRole[]
+
+  @@unique([tenantId, profileId, objectName])
+  @@index([tenantId])
+  @@index([objectName])
+}
+
+model PermissionSetRole {
+  id              String        @id @default(cuid())
+  permissionSetId String
+  permissionSet   PermissionSet @relation(fields: [permissionSetId], references: [id])
+  roleId          String
+  role            Role          @relation(fields: [roleId], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@unique([permissionSetId, roleId])
+}
+
+// ============================================
+// EFFECTIVE PERMISSION SYSTEM
+// ============================================
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  label       String
+  module      String
+  action      String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profilePermissions    UserProfilePermission[]
+  permSetItems          NewPermissionSetItem[]
+  directUserPermissions UserDirectPermission[]
+
+  @@index([module])
+  @@index([module, action])
+}
+
+model NewPermissionSet {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items             NewPermissionSetItem[]
+  userAssignments   UserPermissionAssignment[]
+  objectPermissions PermissionSetObjectPermission[]
+  fieldPermissions  PermissionSetFieldPermission[]
+  groupItems        PermissionSetGroupItem[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model NewPermissionSetItem {
+  id              String           @id @default(cuid())
+  permissionSetId String
+  permissionSet   NewPermissionSet @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  permissionId    String
+  permission      Permission       @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+
+  @@unique([permissionSetId, permissionId])
+  @@index([permissionSetId])
+  @@index([permissionId])
+}
+
+model UserProfilePermission {
+  id           String     @id @default(cuid())
+  profileId    String
+  profile      Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([profileId, permissionId])
+  @@index([profileId])
+  @@index([permissionId])
+}
+
+model UserPermissionAssignment {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionSetId String
+  permissionSet   NewPermissionSet @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+
+  @@unique([userId, permissionSetId])
+  @@index([userId])
+  @@index([permissionSetId])
+}
+
+model UserDirectPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+}
+
+model ProfileObjectPermission {
+  id        String           @id @default(cuid())
+  tenantId  String
+  profileId String
+  profile   Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  objectId  String
+  object    ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+  canCreate Boolean          @default(false)
+  canRead   Boolean          @default(false)
+  canUpdate Boolean          @default(false)
+  canDelete Boolean          @default(false)
+  viewAll   Boolean          @default(false)
+  modifyAll Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([profileId, objectId])
+  @@index([tenantId])
+  @@index([profileId])
+  @@index([objectId])
+}
+
+model ProfileFieldPermission {
+  id        String          @id @default(cuid())
+  tenantId  String
+  profileId String
+  profile   Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  fieldId   String
+  field     FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  canRead   Boolean         @default(true)
+  canEdit   Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([profileId, fieldId])
+  @@index([tenantId])
+  @@index([profileId])
+  @@index([fieldId])
+}
+
+model PermissionSetObjectPermission {
+  id              String           @id @default(cuid())
+  permissionSetId String
+  permissionSet   NewPermissionSet @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  objectId        String
+  object          ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+  canCreate       Boolean          @default(false)
+  canRead         Boolean          @default(false)
+  canUpdate       Boolean          @default(false)
+  canDelete       Boolean          @default(false)
+  viewAll         Boolean          @default(false)
+  modifyAll       Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([permissionSetId, objectId])
+  @@index([permissionSetId])
+  @@index([objectId])
+}
+
+model PermissionSetFieldPermission {
+  id              String           @id @default(cuid())
+  permissionSetId String
+  permissionSet   NewPermissionSet @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  fieldId         String
+  field           FieldDefinition  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  canRead         Boolean          @default(true)
+  canEdit         Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([permissionSetId, fieldId])
+  @@index([permissionSetId])
+  @@index([fieldId])
+}
+
+model PermissionSetGroup {
+  id          String                   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean                  @default(true)
+  assignments PermissionSetGroupItem[]
+  users       UserPermissionSetGroup[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model PermissionSetGroupItem {
+  id              String             @id @default(cuid())
+  groupId         String
+  group           PermissionSetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permissionSetId String
+  permissionSet   NewPermissionSet   @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  createdAt       DateTime           @default(now())
+
+  @@unique([groupId, permissionSetId])
+  @@index([groupId])
+  @@index([permissionSetId])
+}
+
+model UserPermissionSetGroup {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     PermissionSetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+
+  @@unique([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+}
+
+model Queue {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  type        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leads      Lead[]
+  siteVisits SiteVisit[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+enum SharingModel {
+  PRIVATE
+  PUBLIC_READ_ONLY
+  PUBLIC_READ_WRITE
+}
+
+enum SharingAccessLevel {
+  READ
+  EDIT
+}
+
+model ObjectSharingSetting {
+  id           String           @id @default(cuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  objectId     String
+  object       ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+  sharingModel SharingModel     @default(PRIVATE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([tenantId, objectId])
+  @@index([tenantId])
+  @@index([objectId])
+}
+
+model SharingRule {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  objectName  String
+  fromRoleId  String?
+  fromRole    Role?              @relation("SharingRuleFromRole", fields: [fromRoleId], references: [id])
+  toRoleId    String?
+  toRole      Role?              @relation("SharingRuleToRole", fields: [toRoleId], references: [id])
+  accessLevel SharingAccessLevel @default(READ)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([objectName])
+  @@index([fromRoleId])
+  @@index([toRoleId])
+}
+
+model RecordShare {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  objectName  String
+  recordId    String
+  accessLevel SharingAccessLevel @default(READ)
+  reason      String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([userId, objectName, recordId])
+  @@index([tenantId, objectName, recordId])
+  @@index([userId])
+}
+
+model RecordTeamMember {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  objectName  String
+  recordId    String
+  role        String?
+  accessLevel SharingAccessLevel @default(READ)
+  createdAt   DateTime           @default(now())
+
+  @@unique([userId, objectName, recordId])
+  @@index([tenantId, objectName, recordId])
+  @@index([userId])
+}
+
+// ============================================
+// CRM CORE
+// ============================================
+
+enum LeadStatus {
+  NEW                 @map("1")
+  INCOMING            @map("2")
+  PROSPECT            @map("3")
+  SITE_VISIT_SCHEDULED @map("4")
+  SITE_VISIT_HAPPENED @map("5")
+  BOOKED              @map("6")
+  LOST                @map("7")
+}
+
+model LeadStatusSetting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statusId  Int
+  label     String   @db.VarChar(80)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, statusId])
+  @@index([tenantId, enabled])
+}
+
+enum LeadSource {
+  WEBSITE
+  FACEBOOK
+  REFERRAL
+  COLD_CALL
+  ADVERTISEMENT
+  WALK_IN
+  PORTAL
+  CHANNEL_PARTNER
+  INSTAGRAM
+  TWITTER
+  WHATSAPP
+  YOUTUBE
+  OTHER
+}
+
+enum Salutation {
+  MR
+  MS
+  MRS
+  DR
+  PROF
+}
+
+enum Industry {
+  TECHNOLOGY
+  HEALTHCARE
+  FINANCE
+  EDUCATION
+  MANUFACTURING
+  RETAIL
+  REAL_ESTATE
+  CONSTRUCTION
+  HOSPITALITY
+  AUTOMOTIVE
+  ENERGY
+  TELECOMMUNICATIONS
+  MEDIA
+  GOVERNMENT
+  OTHER
+}
+
+enum Rating {
+  HOT
+  WARM
+  COLD
+}
+
+model Lead {
+  id                String           @id @default(cuid())
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  ownerId           String?
+  owner             User?            @relation("LeadOwner", fields: [ownerId], references: [id])
+  creatorId         String
+  creator           User             @relation("LeadCreator", fields: [creatorId], references: [id])
+  leadNumber        String?
+  firstSubSource    String?
+  firstCampaign     String?
+  lastSource        String?
+  lastSubSource     String?
+  lastCampaign      String?
+  lastEnquiryAt     DateTime?
+  enquiryCount      Int              @default(0)
+  leadType          String?
+  lastReEngagedAt   DateTime?
+  lostAt            DateTime?
+  rrQueueId         String?
+  rrQueue           RRQueue?         @relation(fields: [rrQueueId], references: [id])
+  queueId           String?
+  queue             Queue?           @relation(fields: [queueId], references: [id])
+  projectId         String?
+  project           Project?         @relation(fields: [projectId], references: [id])
+  cpPortalAccountId String?
+  cpPortalAccount   CPPortalAccount? @relation(fields: [cpPortalAccountId], references: [id])
+
+  // Standard Lead Fields - Contact Information
+  salutation     Salutation?
+  firstName      String?
+  lastName       String
+  title          String?
+  email          String?
+  phone          String?
+  countryCode    String?
+  mobile         String?
+  tertiaryPhone  String?
+  alternateEmail String?
+  website        String?
+
+  // Standard Lead Fields - Company Information
+  company           String
+  companyId         String?
+  companyAccount    Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  industry          Industry?
+  annualRevenue     Float?
+  numberOfEmployees Int?
+
+  // Standard Lead Fields - Lead Management
+  source            LeadSource @default(OTHER)
+  status            LeadStatus @default(NEW)
+  rating            Rating?
+  leadInterest      String?
+  description       String?
+  score             Int        @default(0)
+  budget            Float?
+  requirements      String?
+  notes             String?
+  customFields      Json       @default("{}")
+  leadSubSource     String?
+  campaign          String?
+  preferredLocation String?
+  occupation        String?
+  dateOfBirth       DateTime?
+  gender            String?
+
+  companyType     String?
+  companyEmail    String?
+  companyPhone    String?
+  designation     String?
+  department      String?
+  gstNumber       String?
+  companyComments String?
+
+  secondaryEmail       String?
+  tertiaryEmail        String?
+  secondaryPhone       String?
+  secondaryCountryCode String?
+  tertiaryCountryCode  String?
+  secondarySource      String?
+  tertiarySource       String?
+  sqftRange            String?
+  bhkSize              String?
+  propertyType         String?
+  validity             String?
+  isRegistered         Boolean @default(false)
+  // Standard Lead Fields - Address
+  street               String?
+  city                 String?
+  stateProvince        String?
+  country              String?
+  postalCode           String?
+
+  // Duplicate detection
+  duplicateOfId String?
+  duplicateOf   Lead?   @relation("LeadDuplicates", fields: [duplicateOfId], references: [id])
+  duplicates    Lead[]  @relation("LeadDuplicates")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  siteVisits              SiteVisit[]
+  quotations              Quotation[]
+  bookings                Booking[]
+  receipts                Receipt[]
+  enquiries               Enquiry[]
+  followUps               FollowUp[]
+  activities              Activity[]
+  callDetails             CallDetail[]
+  callDetailsAsCase       CallDetail[]       @relation("CallDetailCase")
+  cpPortalNotes           CPPortalNote[]
+  greSessions             GRESession[]
+  greRegistrationSessions GreSession[]
+  auditLogs               AuditLog[]
+  ownerHistory            LeadOwnerHistory[]
+  rrAssignmentHistory     RRQueueHistory[]
+  customerUnits           Unit[]             @relation("UnitCustomer")
+  bookingDateUnits        Unit[]             @relation("UnitBookingDate")
+  opportunityUnits        Unit[]             @relation("UnitOpportunity")
+
+  @@unique([tenantId, leadNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, email])
+  @@index([tenantId, phone])
+  @@index([tenantId, company])
+  @@index([tenantId, companyId])
+  @@index([tenantId, mobile])
+  @@index([tenantId, secondaryPhone])
+  @@index([tenantId, tertiaryPhone])
+  @@index([tenantId, source])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, cpPortalAccountId])
+}
+
+model Company {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  normalizedName    String
+  companyType       String?
+  industry          Industry?
+  email             String?
+  phone             String?
+  website           String?
+  address           String?
+  city              String?
+  state             String?
+  country           String?
+  postalCode        String?
+  designation       String?
+  department        String?
+  numberOfEmployees Int?
+  gstNumber         String?
+  normalizedGst     String?
+  comments          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  leads                   Lead[]
+  greRegistrationSessions GreSession[]
+
+  @@unique([tenantId, normalizedName])
+  @@unique([tenantId, normalizedGst])
+  @@index([tenantId, name])
+  @@index([tenantId, phone])
+  @@index([tenantId, email])
+}
+
+model Enquiry {
+  id                   String   @id @default(cuid())
+  enquiryNumber        String
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId               String
+  lead                 Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadType             String
+  enquiryType          String
+  source               String
+  subSource            String?
+  campaignId           String?
+  campaign             String?
+  subCampaignId        String?
+  subCampaign          String?
+  projectId            String?
+  project              Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  phone                String?
+  secondaryPhone       String?
+  tertiaryPhone        String?
+  countryCode          String?
+  secondaryCountryCode String?
+  tertiaryCountryCode  String?
+  email                String?
+  secondaryEmail       String?
+  tertiaryEmail        String?
+  originalSubmissionId String?
+  medium               String?
+  description          String?
+  channelPartner       String?
+  ownerId              String?
+  owner                User?    @relation("EnquiryOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  details              Json?
+  attributes           Json     @default("{}")
+  enquiryDate          DateTime @default(now())
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  followUps            FollowUp[]
+
+  @@unique([tenantId, enquiryNumber])
+  @@unique([tenantId, originalSubmissionId])
+  @@index([tenantId, leadId, createdAt])
+  @@index([tenantId, phone])
+  @@index([tenantId, projectId])
+  @@index([ownerId])
+}
+
+model CPPortalAccount {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String   @default("Channel Partner")
+  username     String
+  email        String
+  passwordHash String
+  category     String   @default("CP Portal")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id])
+  leads  Lead[]
+  notes  CPPortalNote[]
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, username])
+  @@index([tenantId, isActive])
+}
+
+model CPPortalNote {
+  id                String   @id @default(cuid())
+  tenantId          String
+  leadId            String
+  userId            String?
+  cpPortalAccountId String?
+  category          String
+  text              String
+  createdAt         DateTime @default(now())
+
+  lead            Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cpPortalAccount CPPortalAccount? @relation(fields: [cpPortalAccountId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, leadId, createdAt])
+  @@index([userId])
+  @@index([cpPortalAccountId])
+}
+
+model GREAuditEvent {
+  id         String     @id
+  tenantId   String
+  sessionId  String
+  action     String
+  details    Json?
+  createdAt  DateTime   @default(now())
+  GRESession GRESession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  Tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+model GRELink {
+  id          String       @id
+  tenantId    String
+  tokenHash   String       @unique
+  createdById String
+  expiresAt   DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  User        User         @relation(fields: [createdById], references: [id])
+  Tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  GRESession  GRESession[]
+
+  @@index([tenantId, createdAt])
+}
+
+model GRESession {
+  id               String          @id
+  tenantId         String
+  linkId           String
+  sessionTokenHash String          @unique
+  phone            String?
+  countryCode      String          @default("+91")
+  normalizedPhone  String?
+  hadExistingLead  Boolean         @default(false)
+  leadId           String?
+  siteVisitId      String?
+  referenceNumber  String?         @unique
+  currentStep      Int             @default(1)
+  status           String          @default("STARTED")
+  payload          Json?
+  expiresAt        DateTime
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  completedAt      DateTime?
+  GREAuditEvent    GREAuditEvent[]
+  Lead             Lead?           @relation(fields: [leadId], references: [id])
+  GRELink          GRELink         @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  SiteVisit        SiteVisit?      @relation(fields: [siteVisitId], references: [id])
+  Tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([tenantId, status, createdAt])
+}
+
+enum GreSessionStatus {
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model GreForm {
+  id               String       @id @default(cuid())
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  publicToken      String       @unique
+  isActive         Boolean      @default(true)
+  expiresAt        DateTime?
+  defaultProjectId String?
+  createdById      String
+  createdBy        User         @relation("GreFormCreator", fields: [createdById], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  sessions         GreSession[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, createdAt])
+}
+
+model GreSession {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  formId           String
+  form             GreForm          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  sessionTokenHash String           @unique
+  phoneCountryCode String?
+  phone            String?
+  normalizedPhone  String?
+  leadId           String?
+  lead             Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  siteVisitId      String?
+  siteVisit        SiteVisit?       @relation(fields: [siteVisitId], references: [id], onDelete: SetNull)
+  companyId        String?
+  company          Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  currentStep      Int              @default(1)
+  status           GreSessionStatus @default(STARTED)
+  draft            Json?
+  referenceNumber  String?          @unique
+  leadWasExisting  Boolean?
+  expiresAt        DateTime
+  completedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([tenantId, normalizedPhone])
+  @@index([formId, status, createdAt])
+  @@index([leadId])
+}
+
+model RoundRobinConfig {
+  id          String   @id @default(cuid())
+  tenantId    String
+  poolType    String
+  name        String
+  description String?
+  profileName String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, poolType])
+  @@index([tenantId])
+}
+
+model RoundRobinMember {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  poolType  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, userId, poolType])
+  @@index([tenantId])
+  @@index([tenantId, poolType])
+  @@index([userId])
+}
+
+// ============================================
+// SITE VISITS
+// ============================================
+
+enum SiteVisitStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+}
+
+enum QuotationStatus {
+  CONFIRMED
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId          String
+  lead            Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  siteVisitId     String
+  siteVisit       SiteVisit       @relation(fields: [siteVisitId], references: [id], onDelete: Restrict)
+  projectId       String
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  unitId          String
+  unit            Unit            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  createdById     String
+  createdBy       User            @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  quotationNumber String
+  status          QuotationStatus @default(CONFIRMED)
+  customerName    String
+  customerPhone   String?
+  customerEmail   String?
+  customerAddress String?
+  projectName     String
+  unitNumber      String
+  unitType        String?
+  area            Float
+  pricePerSqFt    Float
+  basePrice       Float
+  plcAmount       Float           @default(0)
+  discountAmount  Float           @default(0)
+  totalPrice      Float
+  paymentPlanName String
+  paymentPlan     Json
+  booking         Booking?
+  terms           String?
+  confirmedAt     DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([tenantId, quotationNumber])
+  @@index([tenantId, leadId, createdAt])
+  @@index([tenantId, siteVisitId])
+  @@index([tenantId, unitId])
+}
+
+enum BookingStage {
+  NEW_BOOKING
+  WELCOME_CALL
+  WELCOME_MAIL_RECEIPT_SENT
+  PARENT_DOCUMENT_SENT
+  QUERIES
+  CANCELLED
+}
+
+enum BookingStatus {
+  RESERVED
+  BOOKED
+  CONFIRMED
+  CANCELLED
+}
+
+enum ReceiptKind {
+  MIS_SUBMISSION
+  CRM_PAYMENT
+}
+
+enum ReceiptApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ISSUED
+}
+
+model Booking {
+  id                        String        @id @default(cuid())
+  tenantId                  String
+  tenant                    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId                    String
+  lead                      Lead          @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  quotationId               String        @unique
+  quotation                 Quotation     @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+  projectId                 String
+  project                   Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  unitId                    String
+  unit                      Unit          @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  createdById               String
+  createdBy                 User          @relation("BookingCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  ownerId                   String?
+  owner                     User?         @relation("BookingOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  bookingNumber             String
+  status                    BookingStatus @default(RESERVED)
+  bookingStage              BookingStage  @default(NEW_BOOKING)
+  cancellationStatus        String?
+  cancellationReason        String?
+  cancellationRequestedById String?
+  cancellationRequestedAt   DateTime?
+  cancellationReviewedById  String?
+  cancellationReviewedAt    DateTime?
+  cancellationReviewNote    String?
+  welcomeCallCompletedAt    DateTime?
+  welcomeCallCompletedById  String?
+  welcomeCallCompletedBy    User?         @relation("BookingWelcomeCallCompleter", fields: [welcomeCallCompletedById], references: [id], onDelete: SetNull)
+  welcomeCallNotes          String?
+  details                   Json          @default("{}")
+  plotDetails               Json
+  bookingAmount             Float         @default(0)
+  firstApplicant            Json
+  secondApplicant           Json?
+  profession                Json
+  referredBy                String?
+  receipts                  Receipt[]
+  followUps                 FollowUp[]
+  activities                Activity[]
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+
+  @@unique([tenantId, bookingNumber])
+  @@index([tenantId, leadId, createdAt])
+  @@index([tenantId, unitId, status])
+  @@index([ownerId])
+}
+
+model Receipt {
+  id                  String                @id @default(cuid())
+  tenantId            String
+  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId              String
+  lead                Lead                  @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  bookingId           String
+  booking             Booking               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  createdById         String
+  createdBy           User                  @relation("ReceiptCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedById        String?
+  reviewedBy          User?                 @relation("ReceiptReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  kind                ReceiptKind           @default(MIS_SUBMISSION)
+  receiptNumber       String
+  approvalStatus      ReceiptApprovalStatus @default(PENDING_APPROVAL)
+  approvalSubmittedAt DateTime              @default(now())
+  approvalReviewedAt  DateTime?
+  approvalNote        String?
+  receiptDate         DateTime
+  receivedFrom        String
+  amount              Float
+  installmentIndex    Int?
+  paymentMode         String
+  transactionId       String?
+  receivedDate        DateTime
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId, leadId, createdAt])
+  @@index([tenantId, bookingId, receivedDate])
+  @@index([tenantId, approvalStatus, approvalSubmittedAt])
+}
+
+model SiteVisit {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  assigneeId String?
+  assignee   User?    @relation("SvAssignee", fields: [assigneeId], references: [id])
+  creatorId  String
+  creator    User     @relation("SvCreator", fields: [creatorId], references: [id])
+  queueId    String?
+  queue      Queue?   @relation(fields: [queueId], references: [id])
+
+  siteVisitNumber String
+
+  previousSiteVisitId String?
+  previousSiteVisit   SiteVisit?  @relation("SiteVisitRevisit", fields: [previousSiteVisitId], references: [id])
+  revisits            SiteVisit[] @relation("SiteVisitRevisit")
+
+  scheduledAt                  DateTime
+  completedAt                  DateTime?
+  completedById                String?
+  completedBy                  User?           @relation("SvCompletedBy", fields: [completedById], references: [id])
+  salespersonLatitude          Float?
+  salespersonLongitude         Float?
+  gpsAccuracyMeters            Float?
+  gpsTimestamp                 DateTime?
+  projectLatitudeAtCompletion  Float?
+  projectLongitudeAtCompletion Float?
+  distanceFromProjectMeters    Float?
+  locationVerified             Boolean         @default(false)
+  locationVerifiedAt           DateTime?
+  status                       SiteVisitStatus @default(SCHEDULED)
+  missedAt                     DateTime?
+  feedback                     String?
+  customerFeedback             String?
+  completionNotes              String?
+  cancellationReason           String?
+  cancelledAt                  DateTime?
+  cancelledById                String?
+  cancelledBy                  User?           @relation("SvCancelledBy", fields: [cancelledById], references: [id])
+  rating                       Int?
+  notes                        String?
+  customFields                 Json            @default("{}")
+  visitorCount                 Int?
+  visitType                    String?
+  transportRequired            Boolean?
+  salesHandoffAt               DateTime?
+  salesHandoffQueueId          String?
+  salesHandoffPendingReason    String?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+
+  activities              Activity[]
+  quotations              Quotation[]
+  greSessions             GRESession[]
+  greRegistrationSessions GreSession[]
+
+  @@unique([tenantId, siteVisitNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId])
+  @@index([leadId])
+  @@index([previousSiteVisitId])
+  @@index([tenantId, salesHandoffAt])
+}
+
+// ============================================
+// PROJECTS & UNITS
+// ============================================
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  BOOKED
+  HOLD
+  SOLD
+  BLOCKED
+}
+
+model Project {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id])
+  name                String
+  description         String?
+  address             String?
+  city                String?
+  state               String?
+  zipCode             String?
+  latitude            Decimal?  @db.Decimal(10, 7)
+  longitude           Decimal?  @db.Decimal(10, 7)
+  mapUrl              String?   @map("map_url")
+  allowedRadiusMeters Int       @default(100)
+  totalUnits          Int?
+  projectType         String?
+  priceRange          String?
+  possessionDate      DateTime?
+  cpCommission        String?
+  commissionAmount    Float?
+  brochureUrl         String?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  units      Unit[]
+  layouts    ProjectLayout[]
+  quotations Quotation[]
+  bookings   Booking[]
+  leads      Lead[]
+  siteVisits SiteVisit[]
+  enquiries  Enquiry[]
+  rrQueues   RRQueue[]       @relation("RRQueueProject")
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Unit {
+  id                   String     @id @default(cuid())
+  tenantId             String
+  tenant               Tenant     @relation(fields: [tenantId], references: [id])
+  projectId            String
+  project              Project    @relation(fields: [projectId], references: [id])
+  unitCode             String?
+  number               String
+  type                 String?
+  block                String?
+  floor                Int?
+  area                 Float?
+  buildupArea          Int?
+  price                Float?
+  allowedDiscount      String?    @db.VarChar(25)
+  minimumBookingAmount Int?
+  msp                  String?    @db.VarChar(255)
+  plc                  String?    @db.VarChar(255)
+  nonPlc               String?    @db.VarChar(255)
+  registrationDate     DateTime?
+  status               UnitStatus @default(AVAILABLE)
+  ownerId              String?
+  owner                User?      @relation("UnitOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById          String?
+  createdBy            User?      @relation("UnitCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById          String?
+  updatedBy            User?      @relation("UnitModifier", fields: [updatedById], references: [id], onDelete: SetNull)
+  customerLeadId       String?
+  customerLead         Lead?      @relation("UnitCustomer", fields: [customerLeadId], references: [id], onDelete: SetNull)
+  bookingLeadId        String?
+  bookingLead          Lead?      @relation("UnitBookingDate", fields: [bookingLeadId], references: [id], onDelete: SetNull)
+  opportunityLeadId    String?
+  opportunityLead      Lead?      @relation("UnitOpportunity", fields: [opportunityLeadId], references: [id], onDelete: SetNull)
+  customFields         Json?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  layoutShapes ProjectLayoutShape[]
+  quotations   Quotation[]
+  bookings     Booking[]
+
+  @@unique([tenantId, projectId, block, floor, number], map: "Unit_location_number_key")
+  @@unique([tenantId, unitCode])
+  @@index([tenantId])
+  @@index([tenantId, projectId])
+  @@index([tenantId, projectId, type, floor, status])
+  @@index([tenantId, status])
+  @@index([ownerId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([customerLeadId])
+  @@index([bookingLeadId])
+  @@index([opportunityLeadId])
+}
+
+model ProjectLayout {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name             String
+  originalFilename String
+  storageKey       String   @unique
+  mimeType         String
+  fileSize         Int
+  selectedPage     Int      @default(1)
+  status           String   @default("DRAFT")
+  createdById      String
+  updatedById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  shapes ProjectLayoutShape[]
+
+  @@index([tenantId, projectId, status])
+}
+
+model ProjectLayoutShape {
+  id        String        @id @default(cuid())
+  layoutId  String
+  layout    ProjectLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  kind      String
+  geometry  Json
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([layoutId, unitId])
+  @@index([unitId])
+}
+
+// ============================================
+// WORK MANAGEMENT
+// ============================================
+
+model FollowUp {
+  id             String  @id @default(cuid())
+  followUpNumber String
+  tenantId       String
+  tenant         Tenant  @relation(fields: [tenantId], references: [id])
+  leadId         String?
+  lead           Lead?     @relation(fields: [leadId], references: [id])
+  enquiryId      String?
+  enquiry        Enquiry?  @relation(fields: [enquiryId], references: [id], onDelete: SetNull)
+  bookingId      String?
+  booking        Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  ownerId        String
+  owner          User      @relation(fields: [ownerId], references: [id])
+  assignedToId   String?
+  assignedTo     User?     @relation("FollowUpAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  title                String
+  subject              String?
+  description          String?
+  comments             String?
+  previousDisposition  String?
+  cancelledReason      String?
+  dueDate              DateTime
+  completedAt          DateTime?
+  isCompleted          Boolean  @default(false)
+  isMissed             Boolean  @default(false)
+  missedAt             DateTime?
+  status               String   @default("SCHEDULED")
+  awaitedFollowUp      Boolean  @default(false)
+  isSystemCancelled    Boolean  @default(false)
+  testCheckbox         Boolean  @default(false)
+  sourceTaskId         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tenantId, followUpNumber])
+  @@unique([tenantId, sourceTaskId])
+  @@index([tenantId])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, assignedToId])
+  @@index([leadId])
+  @@index([enquiryId])
+  @@index([bookingId])
+  @@index([tenantId, status])
+  @@index([tenantId, isCompleted, isMissed, dueDate])
+}
+
+// ============================================
+// ACTIVITIES & NOTIFICATIONS
+// ============================================
+
+enum ActivityType {
+  CALL
+  MEETING
+  WHATSAPP
+  EMAIL
+  SITE_VISIT
+  NOTE
+  TASK
+  FOLLOW_UP
+  SYSTEM
+  SCHEDULE
+  MEMO
+}
+
+enum ActivityStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Activity {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  bookingId    String?
+  booking      Booking?   @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  leadId       String?
+  lead         Lead?      @relation(fields: [leadId], references: [id])
+  siteVisitId  String?
+  siteVisit    SiteVisit? @relation(fields: [siteVisitId], references: [id])
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  assignedToId String?
+  assignedTo   User?      @relation("ActivityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  type        ActivityType
+  subject     String
+  description String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  startAt     DateTime?
+  endAt       DateTime?
+  status      ActivityStatus   @default(PLANNED)
+  priority    ActivityPriority @default(MEDIUM)
+  location    String?
+  meetingUrl  String?
+  reminderAt  DateTime?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, startAt])
+  @@index([tenantId, assignedToId])
+  @@index([bookingId])
+  @@index([leadId])
+  @@index([siteVisitId])
+}
+
+model CallDetail {
+  id                 String   @id @default(cuid())
+  name               String   @db.VarChar(255)
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  callFrom           String?  @db.VarChar(255)
+  callId             String   @unique @default(cuid()) @db.VarChar(255)
+  callTo             String?  @db.VarChar(50)
+  callType           String   @db.VarChar(50)
+  caseId             String?
+  case               Lead?    @relation("CallDetailCase", fields: [caseId], references: [id], onDelete: SetNull)
+  createdById        String
+  createdBy          User     @relation("CallDetailCreator", fields: [createdById], references: [id])
+  duration           Int      @default(0)
+  endAt              DateTime
+  executiveContactNo String?  @db.VarChar(50)
+  landingNumber      String?  @db.VarChar(255)
+  lastModifiedById   String?
+  lastModifiedBy     User?    @relation("CallDetailModifier", fields: [lastModifiedById], references: [id], onDelete: SetNull)
+  leadId             String
+  lead               Lead     @relation(fields: [leadId], references: [id])
+  ownerId            String?
+  owner              User?    @relation("CallDetailOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parentId           String?  @db.VarChar(100)
+  parentUrl          String?  @db.VarChar(255)
+  recordingFile      String?  @db.VarChar(255)
+  startAt            DateTime
+  status             String   @default("COMPLETED") @db.VarChar(50)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, leadId, startAt])
+  @@index([caseId])
+  @@index([createdById])
+  @@index([lastModifiedById])
+  @@index([ownerId])
+}
+
+model Notification {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  title         String
+  message       String
+  type          String
+  referenceId   String?
+  referenceType String?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, isRead])
+}
+
+// ============================================
+// WORKFLOWS & AUTOMATIONS
+// ============================================
+
+model Workflow {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  name          String
+  description   String?
+  triggerType   String
+  triggerObject String
+  conditions    Json
+  actions       Json
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Automation {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  description  String?
+  triggerEvent String
+  conditions   Json
+  actions      Json
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+// ============================================
+// REPORTS & DASHBOARDS
+// ============================================
+
+enum ReportVisibility {
+  PRIVATE
+  PUBLIC
+  SHARED
+}
+
+enum DashboardVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+model ReportFolder {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  visibility  ReportVisibility @default(PRIVATE)
+  isShared    Boolean          @default(false)
+  deletedAt   DateTime?
+  modifiedBy  String?
+  createdBy   String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  reports   Report[]
+  favorites ReportFolderFavorite[]
+  shares    ReportFolderShare[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Report {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  folderId    String?
+  folder      ReportFolder? @relation(fields: [folderId], references: [id])
+  name        String
+  description String?
+  type        String
+  objectName  String
+  columns     Json
+  config      Json?
+  filters     Json?
+  groupBy     String?
+  sortBy      String?
+  isShared    Boolean       @default(false)
+  deletedAt   DateTime?
+  modifiedBy  String?
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  favorites ReportFavorite[]
+  shares    ReportShare[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([folderId])
+}
+
+model ReportShare {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId      String?
+  roleId      String?
+  accessLevel String   @default("VIEWER")
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, reportId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model ReportFavorite {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([reportId, userId])
+  @@index([tenantId, userId])
+}
+
+model ReportFolderShare {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  folderId    String
+  folder      ReportFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId      String?
+  roleId      String?
+  accessLevel String       @default("VIEWER")
+  createdBy   String
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId, folderId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model ReportFolderFavorite {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  folderId  String
+  folder    ReportFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime     @default(now())
+
+  @@unique([folderId, userId])
+  @@index([tenantId, userId])
+}
+
+model Dashboard {
+  id                      String              @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant              @relation(fields: [tenantId], references: [id])
+  folderId                String?
+  folder                  DashboardFolder?    @relation(fields: [folderId], references: [id])
+  ownerId                 String?
+  owner                   User?               @relation("DashboardOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  name                    String
+  description             String?
+  filters                 Json?
+  layout                  Json
+  layoutConfig            Json?
+  visibility              DashboardVisibility @default(PRIVATE)
+  refreshInterval         String              @default("MANUAL")
+  autoRefreshWhileEditing Boolean             @default(false)
+  isDefault               Boolean             @default(false)
+  isActive                Boolean             @default(true)
+  createdBy               String
+  lastRefreshedAt         DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  sharedProfiles DashboardProfileShare[]
+  shares         DashboardShare[]
+  favorites      DashboardFavorite[]
+  subscriptions  DashboardSubscription[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([folderId])
+  @@index([ownerId])
+}
+
+model DashboardProfileShare {
+  id          String    @id @default(cuid())
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  profileId   String
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, profileId])
+  @@index([profileId])
+}
+
+model DashboardFolder {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dashboards Dashboard[]
+  favorites  DashboardFolderFavorite[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model DashboardFolderFavorite {
+  id        String          @id @default(cuid())
+  tenantId  String
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  folderId  String
+  folder    DashboardFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([folderId, userId])
+  @@index([tenantId, userId])
+}
+
+model DashboardShare {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId      String?
+  role        Role?     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  teamId      String?
+  accessLevel String    @default("VIEW")
+  createdBy   String
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, dashboardId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model DashboardFavorite {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([dashboardId, userId])
+  @@index([tenantId, userId])
+}
+
+model DashboardSubscription {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  dashboardId String
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([dashboardId, userId])
+  @@index([tenantId, userId])
+}
+
+// ============================================
+// AUDIT & AI
+// ============================================
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+  leadId   String?
+  lead     Lead?   @relation(fields: [leadId], references: [id])
+
+  action     String
+  objectType String
+  objectId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  // Set when a Superadmin made this change while signed in as the tenant admin.
+  // Stored without a User relation so the User model stays unchanged.
+  impersonatedById String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, objectType])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, objectType, objectId])
+  @@index([createdAt])
+}
+
+model AIConversation {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AIMessage[]
+
+  @@index([tenantId, userId])
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id])
+
+  role        String
+  content     String
+  toolCalls   Json?
+  toolResults Json?
+  createdAt   DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+// ============================================
+// METADATA - OBJECT DEFINITIONS
+// ============================================
+
+model ObjectDefinition {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name                    String
+  label                   String
+  pluralLabel             String
+  description             String?
+  icon                    String?
+  objectType              String  @default("custom")
+  isActive                Boolean @default(true)
+  isAvailableInNavigation Boolean @default(true)
+  isAvailableInReports    Boolean @default(true)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  fields                         FieldDefinition[]
+  layouts                        PageLayout[]
+  objectPerms                    ObjectPermission[]
+  profileObjectPermissions       ProfileObjectPermission[]
+  permissionSetObjectPermissions PermissionSetObjectPermission[]
+  sharingSettings                ObjectSharingSetting[]
+  records                        CustomRecord[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// ============================================
+// METADATA - FIELD DEFINITIONS
+// ============================================
+
+model FieldDefinition {
+  id       String           @id @default(cuid())
+  tenantId String
+  objectId String
+  object   ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  name        String
+  label       String
+  fieldType   String
+  description String?
+  helpText    String?
+
+  required     Boolean @default(false)
+  unique       Boolean @default(false)
+  defaultValue String?
+
+  searchable Boolean @default(false)
+  sortable   Boolean @default(false)
+  filterable Boolean @default(false)
+
+  visible         Boolean @default(true)
+  editable        Boolean @default(true)
+  isActive        Boolean @default(true)
+  isSystemField   Boolean @default(false)
+  isCustomField   Boolean @default(true)
+  isStandardField Boolean @default(false)
+
+  displayOrder Int @default(0)
+
+  minLength Int?
+  maxLength Int?
+  minValue  Float?
+  maxValue  Float?
+  precision Int?
+  scale     Int?
+
+  lookupObject String?
+  lookupField  String?
+
+  validationRules Json?
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  picklistValues                PicklistValue[]
+  fieldPerms                    FieldPermission[]
+  profileFieldPermissions       ProfileFieldPermission[]
+  permissionSetFieldPermissions PermissionSetFieldPermission[]
+
+  @@unique([objectId, name])
+  @@index([objectId])
+  @@index([tenantId])
+}
+
+// ============================================
+// METADATA - PICKLIST VALUES
+// ============================================
+
+model PicklistValue {
+  id       String          @id @default(cuid())
+  tenantId String
+  fieldId  String
+  field    FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  label        String
+  value        String
+  isActive     Boolean @default(true)
+  isDefault    Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([fieldId, value])
+  @@index([fieldId])
+}
+
+// ============================================
+// METADATA - PAGE LAYOUTS
+// ============================================
+
+model PageLayout {
+  id       String           @id @default(cuid())
+  tenantId String
+  objectId String
+  object   ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  name      String
+  isDefault Boolean @default(false)
+  sections  Json
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([objectId, name])
+  @@index([objectId])
+}
+
+model LayoutAssignment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  objectName    String
+  profileId     String
+  recordTypeKey String   @default("MASTER")
+  layoutId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, objectName, profileId, recordTypeKey])
+  @@index([tenantId, objectName])
+  @@index([layoutId])
+}
+
+// ============================================
+// PERMISSIONS - OBJECT LEVEL
+// ============================================
+
+model ObjectPermission {
+  id       String           @id @default(cuid())
+  tenantId String
+  roleId   String
+  role     Role             @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  objectId String
+  object   ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  canCreate Boolean @default(false)
+  canRead   Boolean @default(false)
+  canUpdate Boolean @default(false)
+  canDelete Boolean @default(false)
+  viewAll   Boolean @default(false)
+  modifyAll Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, objectId])
+  @@index([roleId])
+  @@index([objectId])
+}
+
+// ============================================
+// PERMISSIONS - FIELD LEVEL
+// ============================================
+
+model FieldPermission {
+  id       String          @id @default(cuid())
+  tenantId String
+  roleId   String
+  role     Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  fieldId  String
+  field    FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  canRead Boolean @default(true)
+  canEdit Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, fieldId])
+  @@index([roleId])
+  @@index([fieldId])
+}
+
+// ============================================
+// CUSTOM OBJECT RECORDS
+// ============================================
+
+model CustomRecord {
+  id       String           @id @default(cuid())
+  tenantId String
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  objectId String
+  object   ObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  recordNumber String?
+  ownerId      String?
+  owner        User?   @relation(fields: [ownerId], references: [id])
+
+  data     Json
+  isActive Boolean @default(true)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, objectId, recordNumber])
+  @@index([tenantId, objectId])
+  @@index([tenantId, ownerId])
+  @@index([objectId])
+}
+
+// ============================================
+// SEQUENCES
+// ============================================
+
+model Sequence {
+  id        String @id @default(cuid())
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  type      String
+  nextValue Int    @default(1)
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+}
+
+model RRQueue {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation("RRQueueTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  leadStatus          Json?
+  leadSource          Json?
+  secondarySource     Json?
+  tertiarySource      Json?
+  leadPriority        Json?
+  category            Json?
+  projectInterested   Json?
+  projectId           String?
+  project             Project?  @relation("RRQueueProject", fields: [projectId], references: [id], onDelete: SetNull)
+  country             Json?
+  presalesQueue       Boolean   @default(false)
+  excludeFromNoSource Json?
+  active              Boolean   @default(true)
+  startTime           DateTime?
+  endTime             DateTime?
+  ownerId             String?
+  defaultOwnerId      String?
+  owner               User?     @relation("RRQueueOwner", fields: [ownerId], references: [id])
+  leadCount           Int       @default(0)
+  previousId          Int       @default(0)
+  noOfUsers           Int       @default(0)
+  createdById         String
+  createdBy           User      @relation("RRQueueCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime  @default(now())
+  updatedById         String?
+  updatedBy           User?     @relation("RRQueueUpdatedBy", fields: [updatedById], references: [id])
+  updatedAt           DateTime  @updatedAt
+
+  members RRQueueMember[]
+  history RRQueueHistory[]
+  leads   Lead[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, projectId, active])
+}
+
+model RRQueueMember {
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation("RRQueueMemberTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  rrQueueId        String
+  rrQueue          RRQueue   @relation(fields: [rrQueueId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation("RRQueueMemberUser", fields: [userId], references: [id])
+  userIdNumber     Decimal?  @db.Decimal(18, 0)
+  sequenceId       Int
+  activeMember     Boolean   @default(true)
+  maxLeadCapacity  Int       @default(-1)
+  currentLeadCount Int       @default(0)
+  userType         String
+  isAvailable      Boolean   @default(true)
+  isWorking        Boolean   @default(true)
+  weekOff          Boolean   @default(false)
+  lastAssignedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([tenantId, name], map: "RRQueueMember_tenant_name_key")
+  @@unique([rrQueueId, userId, userType])
+  @@unique([rrQueueId, sequenceId])
+  @@index([tenantId, rrQueueId, activeMember])
+  @@index([rrQueueId, userType, activeMember, isAvailable, isWorking, weekOff])
+}
+
+model RRQueueHistory {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation("RRQueueHistoryTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  rrQueueId     String
+  rrQueue       RRQueue  @relation(fields: [rrQueueId], references: [id], onDelete: Cascade)
+  leadId        String?
+  lead          Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  field         String
+  userId        String
+  user          User     @relation("RRQueueHistoryUser", fields: [userId], references: [id])
+  userName      String
+  originalValue String?
+  newValue      String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, rrQueueId, createdAt])
+  @@index([leadId])
+}
+
+// ============================================
+// LEAD OWNER HISTORY
+// ============================================
+
+model LeadOwnerHistory {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  leadId          String
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  previousOwnerId String?
+  previousOwner   User?     @relation("PrevLeadOwner", fields: [previousOwnerId], references: [id])
+  newOwnerId      String?
+  newOwner        User?     @relation("NewLeadOwner", fields: [newOwnerId], references: [id])
+  previousProfile String?
+  newProfile      String?
+  previousStatus  String?
+  newStatus       String?
+  handoffReason   String?
+  changedById     String
+  changedBy       User      @relation(fields: [changedById], references: [id])
+  startDate       DateTime  @default(now())
+  endDate         DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([newOwnerId])
+  @@index([previousOwnerId])
+  @@index([tenantId, leadId])
+  @@index([leadId, endDate])
+}
+
+model SavedListView {
+  id          String               @id @default(cuid())
+  tenantId    String
+  module      String
+  name        String
+  apiName     String
+  visibility  String
+  filters     Json
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  shares      SavedListViewShare[]
+
+  @@unique([tenantId, module, apiName])
+  @@index([tenantId, module])
+}
+
+model SavedListViewShare {
+  id         String        @id @default(cuid())
+  listViewId String
+  userId     String
+  listView   SavedListView @relation(fields: [listViewId], references: [id], onDelete: Cascade)
+
+  @@unique([listViewId, userId])
+}
+
+model ListViewPreference {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  module    String
+  viewKey   String
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId, module])
+}
+
+model ListViewPin {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  module    String
+  viewKey   String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, userId, module, viewKey])
+}
+
+model ListViewRecent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  module    String
+  viewKey   String
+  usedAt    DateTime @updatedAt
+
+  @@unique([tenantId, userId, module, viewKey])
+}
+
+model CrmRecordView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  module    String
+  recordId  String
+  viewedAt  DateTime @updatedAt
+
+  @@unique([tenantId, userId, module, recordId])
+  @@index([tenantId, userId, module, viewedAt])
+}
+
+// Company API credentials. tenantId and createdById are stored without
+// Prisma relations so Tenant and User stay unchanged.
+model ApiKey {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  name               String
+  keyPrefix          String
+  keyHash            String    @unique
+  scopes             String[]
+  rateLimitPerMinute Int       @default(120)
+  ipAllowlist        String[]  @default([])
+  lastUsedAt         DateTime?
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  createdById        String
+  createdAt          DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, revokedAt])
+  @@map("api_keys")
+}
+
+// Superadmin "Setup Home" sessions. Foreign keys are omitted so Tenant and User stay unchanged.
+model ImpersonationSession {
+  id                String    @id @default(cuid())
+  superadminId      String
+  tenantId          String
+  actingAsUserId    String
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+  endReason         String?
+  ip                String?
+  userAgent         String?
+  viewOnly          Boolean   @default(false)
+  allowInactive     Boolean   @default(false)
+  hardExpiresAt     DateTime
+  lastActivityAt    DateTime  @default(now())
+  returnPath        String
+  notifySentAt      DateTime?
+  superadminLoginAt DateTime
+  createdAt         DateTime  @default(now())
+
+  @@index([superadminId, endedAt])
+  @@index([tenantId, startedAt])
+  @@map("impersonation_sessions")
+}
+
+model TenantImpersonationSetting {
+  tenantId        String  @id
+  notifyOnAccess  Boolean @default(true)
+
+  @@map("tenant_impersonation_settings")
+}
+
+// URL-token telephony connections. No foreign keys, matching ApiKey.
+model TelephonyIntegration {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  name               String
+  keyPrefix          String
+  keyHash            String    @unique
+  ipAllowlist        String[]  @default([])
+  rateLimitPerMinute Int       @default(120)
+  lastUsedAt         DateTime?
+  revokedAt          DateTime?
+  createdById        String
+  createdAt          DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, revokedAt])
+  @@map("telephony_integrations")
+}
+
+model TelephonyCallReceipt {
+  id             String   @id @default(cuid())
+  tenantId       String
+  integrationId  String
+  providerCallId String
+  leadId         String
+  callDetailId   String?
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, providerCallId])
+  @@index([integrationId])
+  @@index([leadId])
+  @@map("telephony_call_receipts")
+}

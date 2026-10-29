@@ -1,0 +1,2 @@
+ALTER TABLE "Opportunity"
+  ADD COLUMN IF NOT EXISTS "notes" TEXT;

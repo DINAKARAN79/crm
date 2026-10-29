@@ -1,0 +1,2 @@
+ALTER TABLE "SiteVisit"
+ADD COLUMN IF NOT EXISTS "customFields" JSONB NOT NULL DEFAULT '{}'::jsonb;

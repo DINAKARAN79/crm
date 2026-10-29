@@ -1,0 +1,117 @@
+import express from 'express';
+import type { Server } from 'http';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const database = vi.hoisted(() => ({
+  apiKeyFindUnique: vi.fn(),
+  apiKeyUpdate: vi.fn(),
+  tenantFindUnique: vi.fn(),
+  userFindUnique: vi.fn(),
+}));
+
+vi.mock('@dct-crm/db', () => ({
+  prisma: {
+    apiKey: {
+      findUnique: database.apiKeyFindUnique,
+      update: database.apiKeyUpdate,
+    },
+    tenant: { findUnique: database.tenantFindUnique },
+    user: { findUnique: database.userFindUnique },
+  },
+}));
+
+import { authenticate } from './auth';
+import { hashApiKey, resetApiKeyRateLimits } from '../services/apiKeys';
+
+const servers: Server[] = [];
+
+function listen(app: express.Express) {
+  const server = app.listen(0);
+  servers.push(server);
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected a TCP server address');
+  return address.port;
+}
+
+const rawKey = 'dct_testkeyvalue1234567890';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetApiKeyRateLimits();
+  database.apiKeyFindUnique.mockResolvedValue({
+    id: 'key-1',
+    tenantId: 'tenant-a',
+    name: 'Website',
+    keyPrefix: 'dct_testkey',
+    keyHash: hashApiKey(rawKey),
+    scopes: ['leads:read'],
+    rateLimitPerMinute: 1,
+    ipAllowlist: ['10.0.0.8'],
+    lastUsedAt: null,
+    expiresAt: null,
+    revokedAt: null,
+    createdById: 'super-a',
+  });
+  database.tenantFindUnique.mockResolvedValue({
+    id: 'tenant-a',
+    isActive: true,
+    companyStartDate: null,
+    companyExpiryDate: null,
+  });
+  database.userFindUnique.mockResolvedValue({ id: 'super-a', email: 'super@example.com', isActive: true });
+  database.apiKeyUpdate.mockResolvedValue({});
+});
+
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  })));
+});
+
+describe('API key authentication', () => {
+  it('uses the key company and rejects another tenant, a blocked IP, another endpoint, a missing scope, and the rate limit', async () => {
+    const app = express();
+    app.get('/api/leads', authenticate, (req: any, res) => {
+      res.json({ tenantId: req.tenantId, keyId: req.apiKey?.id, super: req.user.isSuperAdmin });
+    });
+    app.get('/api/projects', authenticate, (_req, res) => res.json({ ok: true }));
+    const port = listen(app);
+    const headers = { 'x-api-key': rawKey, 'x-forwarded-for': '10.0.0.8' };
+
+    const allowed = await fetch(`http://127.0.0.1:${port}/api/leads`, { headers });
+    expect(allowed.status).toBe(200);
+    expect(await allowed.json()).toMatchObject({ tenantId: 'tenant-a', keyId: 'key-1', super: false });
+
+    const mismatch = await fetch(`http://127.0.0.1:${port}/api/leads?tenantId=tenant-b`, {
+      headers: { Authorization: `Bearer ${rawKey}`, 'x-forwarded-for': '10.0.0.8' },
+    });
+    expect(mismatch.status).toBe(403);
+    expect((await mismatch.json()).error).toMatch(/does not match this API key/);
+
+    const wrongIp = await fetch(`http://127.0.0.1:${port}/api/leads`, {
+      headers: { 'x-api-key': rawKey, 'x-forwarded-for': '10.9.9.9' },
+    });
+    expect(wrongIp.status).toBe(403);
+
+    const blocked = await fetch(`http://127.0.0.1:${port}/api/projects`, { headers });
+    expect(blocked.status).toBe(403);
+
+    database.apiKeyFindUnique.mockResolvedValueOnce({
+      id: 'key-2',
+      tenantId: 'tenant-b',
+      scopes: ['follow-ups:read'],
+      rateLimitPerMinute: 120,
+      ipAllowlist: [],
+      expiresAt: null,
+      revokedAt: null,
+      createdById: 'super-a',
+    });
+    const otherCompany = await fetch(`http://127.0.0.1:${port}/api/leads`, { headers: { 'x-api-key': rawKey } });
+    const otherBody = await otherCompany.json();
+    expect(otherCompany.status).toBe(403);
+    expect(otherBody.error).toMatch(/missing the leads:read scope/);
+
+    const limited = await fetch(`http://127.0.0.1:${port}/api/leads`, { headers });
+    expect(limited.status).toBe(429);
+  });
+});

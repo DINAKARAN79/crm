@@ -1,0 +1,32 @@
+{
+  "name": "@dct-crm/db",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "tsx src/seed.ts",
+    "db:seed-booking-object": "tsx src/seed-booking-object.ts",
+    "db:seed-unit-fields": "tsx src/seed-unit-fields.ts",
+    "db:seed-profiles": "tsx src/seed-profiles.ts",
+    "db:grant-site-visit-project-read": "tsx src/grant-site-visit-project-read.ts",
+    "db:seed-super-admin": "tsx src/seed-super-admin.ts",
+    "db:backfill-lead-numbers": "tsx src/backfill-lead-numbers.ts",
+    "db:repair-admin-access": "tsx src/repair-admin-access.ts",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "bcrypt": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "prisma": "^5.14.0",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5"
+  }
+}

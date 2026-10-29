@@ -1,0 +1,16 @@
+ALTER TABLE "Tenant" ADD COLUMN "companyCode" TEXT DEFAULT 'TEMP' NOT NULL;
+ALTER TABLE "Tenant" ADD COLUMN "email" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "phone" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "website" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "address" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "city" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "state" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "country" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "postalCode" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "timezone" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "currency" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "description" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "createdBy" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "updatedBy" TEXT;
+CREATE UNIQUE INDEX "Tenant_companyCode_key" ON "Tenant"("companyCode");
+CREATE INDEX "Tenant_companyCode_idx" ON "Tenant"("companyCode");

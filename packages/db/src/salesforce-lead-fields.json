@@ -1,0 +1,1767 @@
+[
+    {
+        "label":  "Abandoned By",
+        "apiName":  "Abandoned_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Abandoned Date",
+        "apiName":  "Abandoned_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Abandoned Lead Capture Date",
+        "apiName":  "Abandoned_Lead_Capture_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "AbandonedInactiveUserLeads",
+        "apiName":  "AbandonedInactiveUserLeads__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Address",
+        "apiName":  "Address",
+        "sourceType":  "Address"
+    },
+    {
+        "label":  "Adset Name",
+        "apiName":  "Adset_Name__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Annual Revenue",
+        "apiName":  "AnnualRevenue",
+        "sourceType":  "Currency(18, 0)"
+    },
+    {
+        "label":  "Approval Status",
+        "apiName":  "Approval_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Are you Looking to buy a plot for?",
+        "apiName":  "Are_you_Looking_to_buy_a_plot_for__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Area preferred to buy a plot",
+        "apiName":  "Area_preferred_to_buy_a_plot__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "Aspect of our Brand",
+        "apiName":  "Aspect_of_our_Brand__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Assigment count",
+        "apiName":  "Assigment_count__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Assign To",
+        "apiName":  "Assign_To__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Assignment Type",
+        "apiName":  "Assignment_Type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Attended By",
+        "apiName":  "Attended__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Attended By Sales",
+        "apiName":  "Attended_By_Sales__c",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "Attended By Team",
+        "apiName":  "Attended_By_Team__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "Audit Notes",
+        "apiName":  "Audit_Notes__c",
+        "sourceType":  "Text Area(255)"
+    },
+    {
+        "label":  "Back Date Created Date",
+        "apiName":  "Created_Date__c",
+        "sourceType":  "Formula (Date)"
+    },
+    {
+        "label":  "Basic Price",
+        "apiName":  "Basic_Price__c",
+        "sourceType":  "Currency(18, 0)"
+    },
+    {
+        "label":  "Best time to Call",
+        "apiName":  "Best_time_to_Call__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Booking Date",
+        "apiName":  "Booking_Date__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Budget",
+        "apiName":  "Budget__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Budget Range",
+        "apiName":  "Budget_Range__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Call Detail Count",
+        "apiName":  "Call_Detail_Count__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Campaign",
+        "apiName":  "Campaign_std__c",
+        "sourceType":  "Lookup(Campaign)"
+    },
+    {
+        "label":  "Campaign ID",
+        "apiName":  "Campaign__c",
+        "sourceType":  "Text(225)"
+    },
+    {
+        "label":  "Capture Re-Engaged Date",
+        "apiName":  "Capture_Re_Engaged_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Cent Range",
+        "apiName":  "Cent_Range__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Cents",
+        "apiName":  "Cents__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Channel Partner",
+        "apiName":  "Channel_Partner__c",
+        "sourceType":  "Lookup(Channel Partner)"
+    },
+    {
+        "label":  "Chatbot Appointment Scheduled",
+        "apiName":  "Chatbot_Appointment_Scheduled__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "City",
+        "apiName":  "City__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Closed Lost By",
+        "apiName":  "Closed_Lost_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Closed Lost Date",
+        "apiName":  "Closed_Lost_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Closed Lost Reason",
+        "apiName":  "Closed_Lost_Reason__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Commented Date",
+        "apiName":  "Commented_Date__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Community",
+        "apiName":  "Community__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Company",
+        "apiName":  "Company",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "ComponentNote",
+        "apiName":  "Component_Notes_c__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Contact Through",
+        "apiName":  "Contact_Through__c",
+        "sourceType":  "Text(30)"
+    },
+    {
+        "label":  "Convert Date",
+        "apiName":  "Convert_Date__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Converted",
+        "apiName":  "Converted__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Country",
+        "apiName":  "Country__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "CP Code",
+        "apiName":  "CP_Code__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Created By",
+        "apiName":  "Created_By__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Created By",
+        "apiName":  "CreatedById",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Created By Original",
+        "apiName":  "Created_By_Original__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Created Date Formula",
+        "apiName":  "Created_Date1__c",
+        "sourceType":  "Formula (Date/Time)"
+    },
+    {
+        "label":  "Created DateTime",
+        "apiName":  "Created_DateTime__c",
+        "sourceType":  "Formula (Date/Time)"
+    },
+    {
+        "label":  "CSAT Booking sent date",
+        "apiName":  "CSAT_Booking_sent_date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Data.com Key",
+        "apiName":  "Jigsaw",
+        "sourceType":  "Text(20)"
+    },
+    {
+        "label":  "Date of Birth",
+        "apiName":  "Date_of_Birth__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Delete Lead",
+        "apiName":  "Delete_Lead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Description",
+        "apiName":  "Description",
+        "sourceType":  "Long Text Area(32000)"
+    },
+    {
+        "label":  "Designation/ Job Title",
+        "apiName":  "Designation_Job_Title__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Discription",
+        "apiName":  "Discription__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Do Not Call",
+        "apiName":  "DoNotCall",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Do you need Loan Assistance",
+        "apiName":  "Lead_Capture_Question_1__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Drop Category",
+        "apiName":  "Drop_Category__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Drop Off Reason",
+        "apiName":  "Drop_Off_Reason__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Drop off Reasons",
+        "apiName":  "Drop_off_Reasons__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Dropoff By",
+        "apiName":  "Dropoff_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Dropoff On",
+        "apiName":  "Dropoff_On__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Email",
+        "apiName":  "Email",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "Email Opt Out",
+        "apiName":  "HasOptedOutOfEmail",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "EmailProject",
+        "apiName":  "EmailProject__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Employee Code",
+        "apiName":  "Employee_Code__c",
+        "sourceType":  "Text(20)"
+    },
+    {
+        "label":  "Employee Name",
+        "apiName":  "Employee_Name__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "External Lead ID",
+        "apiName":  "sfleadcaphfprod__External_Lead_ID__c",
+        "sourceType":  "Text(255) (External ID) (Unique Case Insensitive)"
+    },
+    {
+        "label":  "Fax",
+        "apiName":  "Fax",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Fax Opt Out",
+        "apiName":  "HasOptedOutOfFax",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "First Answered Call Duration",
+        "apiName":  "First_Answered_Call_Duration__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "First Call Answered",
+        "apiName":  "First_Call_Answered__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "First Call Created",
+        "apiName":  "First_Call_Created__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "First Call Duration",
+        "apiName":  "First_Call_Duration__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "First Call Reopened Date",
+        "apiName":  "First_Call_Reopened_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "First Campaign",
+        "apiName":  "First_Campaign__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "First Capture PreSale User",
+        "apiName":  "First_Capture_PreSale_User__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "First Contatced On",
+        "apiName":  "First_Approach_On__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "First Owner",
+        "apiName":  "First_Owner__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "First Reopen Answer Duration",
+        "apiName":  "First_Reopen_Answer_Duration__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "First Reopen Duration",
+        "apiName":  "First_Reopen_Duration__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "First Source Of Enquiry",
+        "apiName":  "First_Source_Of_Enquiry__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "First Sub Source",
+        "apiName":  "First_Sub_Source__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "First_Call Reopened Answer Date",
+        "apiName":  "First_Call_Reopened_Answer_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Flat Preference",
+        "apiName":  "Flat_Preference__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Followup Count",
+        "apiName":  "Followup_Count__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Followup Scheduled",
+        "apiName":  "Followup_Scheduled__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Followup Subject",
+        "apiName":  "Followup_Subject__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Future Date",
+        "apiName":  "Future_Date__c",
+        "sourceType":  "Formula (Date/Time)"
+    },
+    {
+        "label":  "Gender Identity",
+        "apiName":  "GenderIdentity",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "genuinely interested in buying a plot?",
+        "apiName":  "genuinely_interested_in_buying_a_plot__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Gupshup Global Opt In",
+        "apiName":  "gupshup_crm__WhatsApp_Global_Opt_In__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Industry",
+        "apiName":  "Industry__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Industry",
+        "apiName":  "Industry",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Interested Project",
+        "apiName":  "Interested_Project__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Is Booking CSAT Email Sent",
+        "apiName":  "Is_Booking_CSAT_Email_Sent__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Call duration Updated",
+        "apiName":  "Is_Call_duration_Updated__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Closed Lost",
+        "apiName":  "Is_Closed_Lost__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is digital medium",
+        "apiName":  "Is_digital_medium__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "Is dubai lead",
+        "apiName":  "Is_dubai_lead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is greLead",
+        "apiName":  "Is_greLead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Lead ReAssigned",
+        "apiName":  "Is_Lead_ReAssigned__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Lead Registered",
+        "apiName":  "Is_Lead_Registered__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Lead Untouched",
+        "apiName":  "Is_Lead_Untouched__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is NRI Lead",
+        "apiName":  "Is_NRI_Lead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Presale Lead",
+        "apiName":  "Is_Presale_Lead__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "Is Reassigned to Other User",
+        "apiName":  "Is_Reassigned_to_Other_User__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is SV Completed",
+        "apiName":  "Is_SV_Completed__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is SV CSAT Email Sent",
+        "apiName":  "Is_SV_CSAT_Email_Sent__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is SV Reassigned Lead",
+        "apiName":  "Is_SV_Reassigned_Lead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Under Allocation",
+        "apiName":  "Is_Under_Allocation__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is Unqualified",
+        "apiName":  "Is_Unqualified__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Is UnTouched",
+        "apiName":  "Is_UnTouched__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "IsAbandonedLeadsReAssigned",
+        "apiName":  "IsAbandonedLeadsReAssigned__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "IsConverted",
+        "apiName":  "IsConverted__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "IsPushed",
+        "apiName":  "IsPushed__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Land Area in Acres",
+        "apiName":  "Land_Area_in_Acres__c",
+        "sourceType":  "Text(60)"
+    },
+    {
+        "label":  "Land Location",
+        "apiName":  "Land_Location__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Land Owner Type",
+        "apiName":  "Land_Owner_Type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Landing number",
+        "apiName":  "Landing_number__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Last Call Date",
+        "apiName":  "Last_Outbound_Call_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last Campagin",
+        "apiName":  "Last_Campagin__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Last Comment",
+        "apiName":  "Last_Comment__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Last commented date",
+        "apiName":  "Last_commented_date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last commented date time",
+        "apiName":  "Last_commented_date_time__c",
+        "sourceType":  "Formula (Date/Time)"
+    },
+    {
+        "label":  "Last CSAT Booking sent date",
+        "apiName":  "Last_CSAT_Booking_sent_date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last Modified By",
+        "apiName":  "LastModifiedById",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Last Modified Date",
+        "apiName":  "Last_Modified_Date__c",
+        "sourceType":  "Formula (Date)"
+    },
+    {
+        "label":  "Last Note",
+        "apiName":  "Last_Note__c",
+        "sourceType":  "Rich Text Area(32768)"
+    },
+    {
+        "label":  "Last Note",
+        "apiName":  "Remark__c",
+        "sourceType":  "Long Text Area(131072)"
+    },
+    {
+        "label":  "Last Re-Engaged Date",
+        "apiName":  "Last_Re_Engaged_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last Re-Opened Date",
+        "apiName":  "Last_Re_Opened_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last Sub Source",
+        "apiName":  "Last_Sub_Source__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Last SV CSAT Sent Date",
+        "apiName":  "Last_SV_CSAT_Sent_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Last Transfer Date",
+        "apiName":  "LastTransferDate",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Last_Note__c",
+        "apiName":  "Last_Note_c__c",
+        "sourceType":  "Rich Text Area(32768)"
+    },
+    {
+        "label":  "Latest Source of Enquiry",
+        "apiName":  "Last_Source_Of_Enquiry__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Lead Age Colors",
+        "apiName":  "Lead_Age1__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Age Days",
+        "apiName":  "Lead_Age__c",
+        "sourceType":  "Formula (Number)"
+    },
+    {
+        "label":  "Lead Assigned",
+        "apiName":  "Lead_Assigned__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Lead Category",
+        "apiName":  "Lead_Category__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Group",
+        "apiName":  "Lead_Group__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead History",
+        "apiName":  "Lead_History__c",
+        "sourceType":  "Long Text Area(131072)"
+    },
+    {
+        "label":  "Lead ID",
+        "apiName":  "Lead_ID__c",
+        "sourceType":  "Auto Number"
+    },
+    {
+        "label":  "Lead Interest",
+        "apiName":  "Rating",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Marketing Sources",
+        "apiName":  "Lead_Marketing_Sources__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Medium",
+        "apiName":  "Lead_Medium__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Owner",
+        "apiName":  "OwnerId",
+        "sourceType":  "Lookup(User,Group)"
+    },
+    {
+        "label":  "Lead Owner Email ID",
+        "apiName":  "Lead_Owner_Email_ID__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Owner Name",
+        "apiName":  "Lead_Owner_Full_Name__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Owner Secondary",
+        "apiName":  "Lead_OwnerSecondary__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Lead OwnerId",
+        "apiName":  "Lead_OwnerId__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Priority",
+        "apiName":  "Lead_Priority__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Pull Request Status",
+        "apiName":  "Lead_Pull_Request_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Pull Requested By",
+        "apiName":  "Lead_Pull_Requested_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Lead ReAssigned Date",
+        "apiName":  "Lead_ReAssigned_Date__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Lead ReAssigned Date_",
+        "apiName":  "Lead_ReAssigned_Dates__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Lead Record Type",
+        "apiName":  "Lead_Record_Type__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Record Type",
+        "apiName":  "RecordTypeId",
+        "sourceType":  "Record Type"
+    },
+    {
+        "label":  "Lead Score",
+        "apiName":  "Lead_Score__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Source",
+        "apiName":  "Lead_source__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Stage",
+        "apiName":  "Lead_Stage__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Status",
+        "apiName":  "Lead_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Sub Source",
+        "apiName":  "Lead_Sub_Source__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Lead Transfer Note",
+        "apiName":  "Lead_Transfer_Note__c",
+        "sourceType":  "Long Text Area(131072)"
+    },
+    {
+        "label":  "Lead Transfered",
+        "apiName":  "Lead_Transfered__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Lead Type",
+        "apiName":  "Lead_Type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lead Validity",
+        "apiName":  "Lead_Validity__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Locale",
+        "apiName":  "Locale__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "Location",
+        "apiName":  "Location__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Looking for Apartments/Plots",
+        "apiName":  "Looking_for_Apartments_Plots__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Looking Villa for",
+        "apiName":  "Looking_Villa_for__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Lost Reason",
+        "apiName":  "Lost_Reason__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "LPSubmitterId",
+        "apiName":  "LPSubmitterId__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Main Lead",
+        "apiName":  "Main_Lead__c",
+        "sourceType":  "Lookup(Lead)"
+    },
+    {
+        "label":  "Main lead status",
+        "apiName":  "Main_lead_status__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Main Pre Sales User",
+        "apiName":  "Main_Pre_Sales_User__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Main Source",
+        "apiName":  "Main_Source__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Manager Id",
+        "apiName":  "Manager_Id__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Marital Status",
+        "apiName":  "Marital_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Masked Phone",
+        "apiName":  "Masked_Phone__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Maximum Budget",
+        "apiName":  "Maximum_Budget__c",
+        "sourceType":  "Currency(16, 2)"
+    },
+    {
+        "label":  "Maximum Investment(in Lakhs)",
+        "apiName":  "Maximum_Investment_in_Lakhs1__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Maximum Investment(in Lakhs)",
+        "apiName":  "Maximum_Investment_in_Lakhs__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "MCube Sub Source",
+        "apiName":  "MCube_Sub_Source__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Medium",
+        "apiName":  "Medium__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Mobile",
+        "apiName":  "MobilePhone",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Mobile Country Code",
+        "apiName":  "et4ae5__Mobile_Country_Code__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Mobile Opt Out",
+        "apiName":  "et4ae5__HasOptedOutOfMobile__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Mode of Site Visit",
+        "apiName":  "Mode_of_Site_Visit__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Name",
+        "apiName":  "Name",
+        "sourceType":  "Name"
+    },
+    {
+        "label":  "Salutation",
+        "apiName":  "Salutation",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "First Name",
+        "apiName":  "FirstName",
+        "sourceType":  "Text(40)"
+    },
+    {
+        "label":  "Last Name",
+        "apiName":  "LastName",
+        "sourceType":  "Text(80)"
+    },
+    {
+        "label":  "Next follow up Date",
+        "apiName":  "Next_follow_up_Date1__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "No of Quotes",
+        "apiName":  "No_of_Quotes__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "No. of Employees",
+        "apiName":  "NumberOfEmployees",
+        "sourceType":  "Number(8, 0)"
+    },
+    {
+        "label":  "No. of Quote",
+        "apiName":  "No_of_Quote__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "No. of Site Visit",
+        "apiName":  "No_of_Site_Visit__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Not dialled",
+        "apiName":  "Not_dialled__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "Not Interested Reason",
+        "apiName":  "Not_interested_Reason__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Not Used",
+        "apiName":  "Lead_Type1__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Not Used",
+        "apiName":  "Status",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Not User",
+        "apiName":  "LeadSource",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Notes",
+        "apiName":  "Comments__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Notes",
+        "apiName":  "Notes__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Notes for Junk",
+        "apiName":  "Notes_for_Junk__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Number Of Calls",
+        "apiName":  "Number_Of_Calls__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Occupation",
+        "apiName":  "Occupation__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Old Lead",
+        "apiName":  "Old_Lead__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Old Leads Booking Date",
+        "apiName":  "Old_Leads_Booking_Date__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Old Leads Inserted",
+        "apiName":  "Old_Leads_Inserted__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Original Project",
+        "apiName":  "Original_Project__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Owner is Active",
+        "apiName":  "Owner_is_Active__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "Owner Profile Name",
+        "apiName":  "Owner_Profile_Name__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Partnership Type",
+        "apiName":  "Partnership_Type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Phone",
+        "apiName":  "Phone",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Phone with Country Code",
+        "apiName":  "Phone_with_Country_Code__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "PhoneProject",
+        "apiName":  "PhoneProject__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Plan To Purchase",
+        "apiName":  "Slab__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Platform",
+        "apiName":  "Platform__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Please confirm",
+        "apiName":  "Please_confirm__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Plot Size",
+        "apiName":  "Plot_Size__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Plot Size Range",
+        "apiName":  "Plot_Size_Range__c",
+        "sourceType":  "Text(80)"
+    },
+    {
+        "label":  "Post site visit rating",
+        "apiName":  "Post_site_visit_rating__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Pre Sales Call Count",
+        "apiName":  "Pre_Sales_Call_Count__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Pre Sales Customer Rating",
+        "apiName":  "Pre_Sales_Customer_Rating__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "pre sales last attempt",
+        "apiName":  "pre_sales_last_attempt__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "pre sales last contacted",
+        "apiName":  "pre_sales_last_contacted__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Pre Sales Name",
+        "apiName":  "Pre_Sales_Name__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Pre Sales User",
+        "apiName":  "Pre_sales_user__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Pre sales user1",
+        "apiName":  "Pre_sales_user1__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Prefer to Connect",
+        "apiName":  "Prefer_to_Connect__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "Preferred location",
+        "apiName":  "Preferred_location__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Preferred property type",
+        "apiName":  "Preferred_property_type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Preferred Unit",
+        "apiName":  "Preferred_Unit__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Preferred Villa Facing",
+        "apiName":  "Preferred_Villa_Facing__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Previous Lead Owner",
+        "apiName":  "Previous_Lead_Owner__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "Previous Notes Abandoned Leads",
+        "apiName":  "Previous_Notes_Abandoned_Leads__c",
+        "sourceType":  "Rich Text Area(32768)"
+    },
+    {
+        "label":  "Previous Presales user",
+        "apiName":  "Previous_Presales_user__c",
+        "sourceType":  "Text(150)"
+    },
+    {
+        "label":  "Primary Country Code",
+        "apiName":  "Country_Code__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Primary Phone",
+        "apiName":  "Phone__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Primary Phone - Marketing",
+        "apiName":  "Primary_Phone_Marketing__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Primary Phone and Country Code",
+        "apiName":  "Primary_Phone_and_Country_Code__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Profession",
+        "apiName":  "Proffession__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Project Name",
+        "apiName":  "Allocated_Project__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Project Phase",
+        "apiName":  "Project_Phase__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Project Type",
+        "apiName":  "Projects__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Pronouns",
+        "apiName":  "Pronouns",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Purpose",
+        "apiName":  "Purpose__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Purpose of Purchase",
+        "apiName":  "Purpose_of_Purchase__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Rate Per Sq Ft",
+        "apiName":  "Rate_Per_Sq_Ft__c",
+        "sourceType":  "Currency(18, 0)"
+    },
+    {
+        "label":  "RCS Message Satus",
+        "apiName":  "RCS_Message_Satus__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "RCS Reply",
+        "apiName":  "RCS_Reply__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Re Enagaged Leads",
+        "apiName":  "Re_Enagaged_Leads__c",
+        "sourceType":  "Checkbox"
+    },
+    {
+        "label":  "Re-assigned date",
+        "apiName":  "Re_assigned_date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Re-engaged Count",
+        "apiName":  "Re_engaged_Count__c",
+        "sourceType":  "Number(3, 0)"
+    },
+    {
+        "label":  "Reassigned By",
+        "apiName":  "Reassigned_By__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "Reassigned Date PreSales",
+        "apiName":  "Reassigned_Date_PreSales__c",
+        "sourceType":  "Date"
+    },
+    {
+        "label":  "Recovery Reassigned Date",
+        "apiName":  "Recovery_Reassigned_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Recovery User",
+        "apiName":  "Recovery_User__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Referral By",
+        "apiName":  "Referral_By__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "referralType",
+        "apiName":  "referralType__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "Referred by Customer",
+        "apiName":  "Referred_by_Customer__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Referred Email ID",
+        "apiName":  "Referred_Email_ID__c",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "Referred Person Name",
+        "apiName":  "Referred_Person_Name__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "Referred Phone Number",
+        "apiName":  "Referred_Phone_Number__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "ReferredEmployee ID",
+        "apiName":  "ReferredEmployee_ID__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "ReferredProject Name",
+        "apiName":  "ReferredProject_Name__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "ReferredUnit Number",
+        "apiName":  "ReferredUnit_Number__c",
+        "sourceType":  "Text(100)"
+    },
+    {
+        "label":  "Religion",
+        "apiName":  "Religion__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Remark for Closed Lost",
+        "apiName":  "Remark_for_Closed_Lost__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Remark for In Process",
+        "apiName":  "Remark_for_In_Process__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Remark for Non Contactable",
+        "apiName":  "Remark_for_Non_Contactable__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Remark for SV Confirmed",
+        "apiName":  "Remark_for_SV_Confirmed__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Remark for SV Done",
+        "apiName":  "Remark_for_SV_Done__c",
+        "sourceType":  "Text Area(255)"
+    },
+    {
+        "label":  "Remark for SV Proposed",
+        "apiName":  "Remark_for_SV_Proposed__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Requested Project",
+        "apiName":  "Requested_Project__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Residential Address",
+        "apiName":  "Residential_Address__c",
+        "sourceType":  "Text Area(255)"
+    },
+    {
+        "label":  "Residential Location",
+        "apiName":  "Resident__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Residential Place",
+        "apiName":  "Residential_Place__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "RNR Date",
+        "apiName":  "RNR_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "RNR hr",
+        "apiName":  "RNR_hr__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "RNR hr count",
+        "apiName":  "RNR_hr_count__c",
+        "sourceType":  "Formula (Number)"
+    },
+    {
+        "label":  "Sales Call Count",
+        "apiName":  "Sales_Call_Count__c",
+        "sourceType":  "Number(18, 0)"
+    },
+    {
+        "label":  "Sales Customer Rating",
+        "apiName":  "Sales_Customer_Rating__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "sales last attempt",
+        "apiName":  "sales_last_attempt__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "sales last contacted",
+        "apiName":  "sales_last_contacted__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Sales Owner",
+        "apiName":  "Sales_Owner__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Sales Prospect Sales User",
+        "apiName":  "Sales_Prospect_Sales_User__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Sales Remarks \u0026 Notes",
+        "apiName":  "Sales_Remarks_Notes__c",
+        "sourceType":  "Text Area(255)"
+    },
+    {
+        "label":  "Sales User",
+        "apiName":  "Sales_User__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Secondary Country",
+        "apiName":  "Secondary_Country__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Secondary Country Code",
+        "apiName":  "Secondary_Country_Code__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Secondary Email",
+        "apiName":  "Secondary_Email__c",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "Secondary Phone",
+        "apiName":  "Secondary_Phone__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Secondary Phone - Marketing",
+        "apiName":  "Secondary_Phone_Marketing__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Secondary Phone Project",
+        "apiName":  "Secondary_Phone_Project__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Secondary Phone with Country Code",
+        "apiName":  "Secondary_Phone_with_Country_Code__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "SecondaryEmailProject",
+        "apiName":  "SecondaryEmailProject__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "ShowButtons",
+        "apiName":  "ShowButtons__c",
+        "sourceType":  "Formula (Checkbox)"
+    },
+    {
+        "label":  "Site Visit Cold Status",
+        "apiName":  "Site_Visit_Cold_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Site visit Date",
+        "apiName":  "Next_Site_visit_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Site Visit Done",
+        "apiName":  "Site_Visit_Done__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Site Visit Email",
+        "apiName":  "Site_Visit_Email__c",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "Site Visit Feedback",
+        "apiName":  "Site_Visit_Feedback__c",
+        "sourceType":  "Long Text Area(32768)"
+    },
+    {
+        "label":  "Site visit Project",
+        "apiName":  "Site_visit_Project__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Site Visit Rating",
+        "apiName":  "Site_Visit_Rating__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Site Visit Schedule Date",
+        "apiName":  "Site_Visit_Schedule_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Site Visit Type",
+        "apiName":  "Site_Visit_Type__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "State",
+        "apiName":  "State__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Status Change Date",
+        "apiName":  "Status_Change_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Store Created Date",
+        "apiName":  "Store_Created_Date__c",
+        "sourceType":  "Formula (Date)"
+    },
+    {
+        "label":  "Sub Campaign",
+        "apiName":  "Sub_Campaign__c",
+        "sourceType":  "Lookup(Sub Campaign)"
+    },
+    {
+        "label":  "Sub Campaign ID",
+        "apiName":  "Sub_Campaign_ID__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Sub Source",
+        "apiName":  "Sub_Source__c",
+        "sourceType":  "Text(200)"
+    },
+    {
+        "label":  "Sub Status",
+        "apiName":  "Sub_Status__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Subject",
+        "apiName":  "Subject__c",
+        "sourceType":  "Text(220)"
+    },
+    {
+        "label":  "SV Completed Date Time",
+        "apiName":  "SV_Completed_Date_Time__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "SV CSAT Sent Date",
+        "apiName":  "SV_CSAT_Sent_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "SV Previous Owner Name",
+        "apiName":  "SV_Previous_Owner_Name__c",
+        "sourceType":  "Text(50)"
+    },
+    {
+        "label":  "SV reassigned DateTime",
+        "apiName":  "SV_reassigned_DateTime__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "SV User",
+        "apiName":  "SV_User__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Team Lead Name",
+        "apiName":  "Team_Lead_Name__c",
+        "sourceType":  "Text(80)"
+    },
+    {
+        "label":  "Tertiary Country Code",
+        "apiName":  "Tertiary_Country_Code__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Tertiary Phone",
+        "apiName":  "Tertiary_Phone__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Tertiary Phone - Marketing",
+        "apiName":  "Tertiary_Phone_Marketing__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Tertiary Phone with Country Code",
+        "apiName":  "Tertiary_Phone_with_Country_Code__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "TertiaryPhoneProject",
+        "apiName":  "TertiaryPhoneProject__c",
+        "sourceType":  "Formula (Text)"
+    },
+    {
+        "label":  "Time Slot range",
+        "apiName":  "Time_Slot_range__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Time to Call At",
+        "apiName":  "Best_Time_to_Call_Text__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "Title",
+        "apiName":  "Title",
+        "sourceType":  "Text(128)"
+    },
+    {
+        "label":  "Transfered By",
+        "apiName":  "Pushed_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Transfered On",
+        "apiName":  "Pushed_On__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Transport Arrangement",
+        "apiName":  "Transport_Arrangement__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Type of lead",
+        "apiName":  "Type_of_lead__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Unit No.",
+        "apiName":  "Unit_No__c",
+        "sourceType":  "Lookup(Unit)"
+    },
+    {
+        "label":  "Unit Preference",
+        "apiName":  "Unit_Preference__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Unqualified By",
+        "apiName":  "Unqualified_Lost_By__c",
+        "sourceType":  "Lookup(User)"
+    },
+    {
+        "label":  "Unqualified Date",
+        "apiName":  "Unqualified_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Unqualified Reason",
+        "apiName":  "Unqualified_Reason__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Valid Lead",
+        "apiName":  "Lead_Verified__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Voice of customer",
+        "apiName":  "Voice_of_customer__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Walk-In SubSource",
+        "apiName":  "Walk_In_SubSource__c",
+        "sourceType":  "Picklist"
+    },
+    {
+        "label":  "Website",
+        "apiName":  "Website",
+        "sourceType":  "URL(255)"
+    },
+    {
+        "label":  "What is the size of your land?",
+        "apiName":  "What_is_the_size_of_your_land__c",
+        "sourceType":  "Text Area(255)"
+    },
+    {
+        "label":  "Whatsapp number",
+        "apiName":  "Whatsapp_number__c",
+        "sourceType":  "Phone"
+    },
+    {
+        "label":  "Would You Like To Schedule SV",
+        "apiName":  "Lead_Capture_Question_2__c",
+        "sourceType":  "Text(255)"
+    },
+    {
+        "label":  "ZEmail",
+        "apiName":  "Email__c",
+        "sourceType":  "Email"
+    },
+    {
+        "label":  "ZNext follow up Date",
+        "apiName":  "Next_follow_up_Date__c",
+        "sourceType":  "Date/Time"
+    },
+    {
+        "label":  "Zone",
+        "apiName":  "Zone__c",
+        "sourceType":  "Picklist"
+    }
+]

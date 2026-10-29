@@ -1,0 +1,617 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.375rem;
+    --control-height: 2.25rem;
+    --font-size-body: 0.8125rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-size: var(--font-size-body);
+    line-height: 1.5;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  h3 {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  p {
+    font-size: var(--font-size-body);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-size: inherit;
+    font-family: inherit;
+  }
+}
+
+.dashboard-page-content > * {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+
+/* Sky theme applied to the Setup and Admin sections */
+.crm-sky {
+  --card: 204 100% 98%;
+  --muted: 204 100% 96%;
+  --muted-foreground: 199 78% 37%;
+  --accent: 204 100% 95%;
+  --border: 204 94% 92%;
+  --input: 201 94% 86%;
+  --ring: 217 91% 60%;
+}
+
+.crm-sky h1 {
+  color: #075d91;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.crm-sky h2,
+.crm-sky h3 {
+  color: #075d91;
+}
+
+.crm-sky button.bg-primary,
+.crm-sky a.bg-primary {
+  background-image: linear-gradient(to right, #2563eb, #3b82f6);
+  box-shadow: 0 1px 2px rgb(191 219 254);
+}
+
+.crm-sky button.bg-primary:hover,
+.crm-sky a.bg-primary:hover {
+  background-image: linear-gradient(to right, #1d4ed8, #2563eb);
+}
+
+.crm-sky thead th {
+  background-color: #f0f9ff;
+  color: #1479a8;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.crm-sky tbody td {
+  color: #075d91;
+}
+
+.crm-sky tbody tr:hover {
+  background-color: rgb(240 249 255 / 0.7);
+}
+
+.crm-sky input:not([type="checkbox"]):not([type="radio"]),
+.crm-sky select,
+.crm-sky textarea {
+  border-color: #bae6fd;
+  background-color: #fff;
+}
+
+.crm-sky input:focus,
+.crm-sky select:focus,
+.crm-sky textarea:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px #dbeafe;
+  outline: none;
+}
+
+.leaflet-container {
+  z-index: 0;
+  height: 100%;
+  width: 100%;
+  background: #e2e8f0;
+}
+
+.project-map-pin {
+  background: none;
+  border: 0;
+}
+
+.project-map-pin span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0 4px;
+  background: #dc2626;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  transform: rotate(-45deg);
+}
+
+/* Zoom changes the CSS viewport. These rules let shared layout shrink
+   inside that viewport. Dialog max-width utilities still set the design cap. */
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+.crm-dialog {
+  width: min(100%, calc(100vw - 1.5rem));
+  max-height: min(92vh, calc(100dvh - 1.5rem));
+  overflow-y: auto;
+}
+
+.crm-list-view-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(100vw - 1.5rem), 44rem);
+  max-width: min(100%, calc(100vw - 1.5rem), 44rem);
+  max-height: min(92vh, calc(100dvh - 1.5rem));
+  overflow: hidden;
+}
+
+.crm-list-view-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.crm-quotation-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(98vw, 1800px);
+  max-width: min(98vw, 1800px);
+  height: 92dvh;
+  max-height: 92dvh;
+  overflow: hidden;
+}
+
+.crm-booking-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(100vw - 1.5rem), 64rem);
+  max-width: min(100%, calc(100vw - 1.5rem), 64rem);
+  max-height: min(92vh, calc(100dvh - 1.5rem));
+  overflow: hidden;
+}
+
+.crm-booking-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.crm-approval-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(100vw - 1.5rem), 72rem);
+  max-width: min(100%, calc(100vw - 1.5rem), 72rem);
+  max-height: min(92vh, calc(100dvh - 1.5rem));
+  overflow: hidden;
+}
+
+.crm-approval-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.crm-quotation-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.crm-quotation-layout-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(68dvh, 820px);
+  object-fit: contain;
+  object-position: center;
+  background: #fff;
+}
+
+.crm-quotation-customer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.crm-quotation-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@container dialog (min-width: 40rem) {
+  .crm-quotation-customer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container dialog (min-width: 64rem) {
+  .crm-quotation-customer {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .crm-quotation-sections {
+    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .crm-quotation-dialog {
+    width: min(98vw, calc(100vw - 0.75rem));
+    max-width: calc(100vw - 0.75rem);
+    height: 96dvh;
+    max-height: 96dvh;
+  }
+
+  .crm-quotation-layout-image {
+    max-height: min(52dvh, 480px);
+  }
+}
+
+/* Dialogs and page forms are size containers, so columns follow the
+   space the form actually has on a small laptop or a large desktop. */
+[role="dialog"] {
+  container-type: inline-size;
+  container-name: dialog;
+}
+
+.dashboard-page-content {
+  padding: clamp(0.75rem, 1.4vw, 1.75rem);
+}
+
+.crm-page-form,
+.crm-record-form {
+  container-type: inline-size;
+  container-name: page-form;
+  width: 100%;
+  min-width: 0;
+}
+
+.crm-page-form {
+  width: min(100%, 90rem);
+  margin-inline: auto;
+}
+
+.crm-form-grid,
+.crm-field-row,
+.crm-pair,
+.crm-shuttle {
+  display: grid;
+  align-items: start;
+  min-width: 0;
+}
+
+.crm-form-grid > *,
+.crm-field-row > *,
+.crm-pair > *,
+.crm-shuttle > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.crm-form-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem 1.5rem;
+}
+
+.crm-field-row,
+.crm-pair,
+.crm-shuttle {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.crm-shuttle-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+@container (min-width: 22rem) {
+  .crm-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 26rem) {
+  .crm-shuttle {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .crm-shuttle-actions {
+    flex-direction: column;
+  }
+}
+
+@container (min-width: 34rem) {
+  .crm-field-row {
+    grid-template-columns: minmax(8.5rem, 11.5rem) minmax(0, 1fr);
+  }
+}
+
+@container (min-width: 40rem) {
+  .crm-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.crm-form-grid.crm-form-grid-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 48rem) {
+  .crm-form-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 24rem) {
+  .crm-dialog-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .crm-dialog-actions > button,
+  .crm-dialog-actions > a {
+    width: 100%;
+  }
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.crm-filter-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  min-width: 0;
+  border: 1px solid #e0f2fe;
+  border-radius: 0.75rem;
+  background: #f5fbff;
+  padding: 0.75rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+.crm-filter-field {
+  flex: 1 1 13.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.crm-filter-actions {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.crm-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  color: #1479a8;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.crm-filter-control {
+  height: 2.25rem;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #bae6fd;
+  border-radius: 0.375rem;
+  background: #fff;
+  padding: 0 0.75rem;
+  color: #334155;
+  font-size: 12px;
+  line-height: 2.25rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.crm-filter-control:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px #dbeafe;
+}
+
+.crm-filter-search {
+  padding-left: 2rem;
+}
+
+.crm-filter-search::-webkit-search-decoration,
+.crm-filter-search::-webkit-search-cancel-button,
+.crm-filter-search::-webkit-search-results-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.crm-filter-search-icon {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #278db8;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.crm-filter-control[type="date"] {
+  color-scheme: light;
+}
+
+.crm-filter-reset {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px solid #bae6fd;
+  border-radius: 0.375rem;
+  background: #fff;
+  padding: 0 0.75rem;
+  color: #075d91;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.crm-filter-reset:hover {
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.crm-filter-reset:focus-visible {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px #dbeafe;
+}
+
+.crm-filter-panel-inline {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  overflow-x: auto;
+}
+
+.crm-filter-panel-inline > .crm-filter-field {
+  flex: 1 1 0;
+  min-width: 9.5rem;
+}
+
+.crm-filter-panel-inline > .crm-filter-actions {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+@media (max-width: 640px) {
+  .crm-filter-field,
+  .crm-filter-actions,
+  .crm-filter-reset {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .crm-filter-panel-inline {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .crm-filter-panel-inline > .crm-filter-field,
+  .crm-filter-panel-inline > .crm-filter-actions,
+  .crm-filter-panel-inline > .crm-filter-actions .crm-filter-reset {
+    flex-basis: 100%;
+    width: 100%;
+    min-width: 0;
+  }
+}

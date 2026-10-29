@@ -1,0 +1,43 @@
+{
+  "name": "dct-crm",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\" \"npm run dev:ai\" \"npm run dev:cp-portal\"",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:ai": "cd apps/ai && python -m uvicorn main:app --reload --port 8001",
+    "dev:cp-portal": "npm run dev --workspace=apps/cp-portal",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:web": "npm run lint --workspace=apps/web",
+    "lint:api": "npm run lint --workspace=apps/api",
+    "test": "npm run test --workspaces --if-present",
+    "test:web": "npm run test --workspace=apps/web",
+    "test:api": "npm run test --workspace=apps/api",
+    "db:generate": "npm run db:generate --workspace=packages/db",
+    "db:push": "npm run db:push --workspace=packages/db",
+    "db:migrate": "npm run db:migrate --workspace=packages/db",
+    "db:seed": "npm run db:seed --workspace=packages/db",
+    "db:studio": "npm run db:studio --workspace=packages/db",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "bcrypt@6.0.0": true,
+    "esbuild@0.21.5": true,
+    "esbuild@0.28.2": true,
+    "prisma@5.22.0": true,
+    "unrs-resolver@1.12.2": true
+  }
+}
