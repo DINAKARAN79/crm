@@ -7,6 +7,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 
 import { leadApi } from "@/lib/api";
+import { clickToCallToast } from "@/lib/click-to-call";
+import { requestLeadCall } from "@/lib/telephony-client";
+import { maskTelephonyNumber, useTelephonyActive, useTelephonyNumberMasking } from "@/lib/telephony-client";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 import { Button } from "@/components/ui/button";
 
@@ -28,7 +33,7 @@ const SOURCE_OPTIONS = [
   { label: "Walk-in", value: "WALK_IN" },
 ];
 
-function mapApiLeadToLead(apiLead: any): Lead {
+function mapApiLeadToLead(apiLead: any, maskNumbers: boolean): Lead {
   const statusLower = (apiLead.status || "NEW").toLowerCase();
   return {
     id: apiLead.id,
@@ -37,7 +42,7 @@ function mapApiLeadToLead(apiLead: any): Lead {
     lastName: apiLead.lastName || "",
     company: apiLead.company || "",
     email: apiLead.email || "",
-    phone: apiLead.phone || "",
+    phone: maskNumbers ? maskTelephonyNumber(apiLead.phone, apiLead.countryCode) : apiLead.phone || "",
     source: apiLead.source || "",
     status: statusLower,
     statusLabel: apiLead.statusLabel || statusLower.replaceAll("_", " "),
@@ -53,9 +58,12 @@ function mapApiLeadToLead(apiLead: any): Lead {
 }
 
 export default function LeadsPage() {
-  const { leadStatuses, hasPermission } = useAuth();
+  const { leadStatuses, hasPermission, hasEffectivePermission, isAdmin, isSuperAdmin } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const listViews = useListView("LEAD");
+  const telephonyActive = useTelephonyActive();
+  const maskNumbers = useTelephonyNumberMasking();
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -80,6 +88,30 @@ export default function LeadsPage() {
 
   const canCreateLead = React.useMemo(() => hasPermission("Lead", "create"), [hasPermission]);
   const canDeleteLead = React.useMemo(() => hasPermission("Lead", "delete"), [hasPermission]);
+  const canCall = hasEffectivePermission("TELEPHONY_CALL") && telephonyActive;
+  const [callingLeadId, setCallingLeadId] = React.useState<string | null>(null);
+
+  const callLead = async (lead: Lead) => {
+    if (!lead.phone || callingLeadId) return;
+    setCallingLeadId(lead.id);
+    const result = await requestLeadCall({
+      leadId: lead.id,
+      phoneField: "phone",
+      leadName: [lead.firstName, lead.lastName].filter(Boolean).join(" ") || lead.company || lead.leadNumber,
+    });
+    const notice = clickToCallToast(result, Boolean(isAdmin || isSuperAdmin));
+    toast({
+      title: notice.title,
+      description: notice.description,
+      variant: notice.variant,
+      action: notice.showSettingsLink ? (
+        <ToastAction altText="Open telephony settings" onClick={() => router.push("/setup/integrations/telephony")}>
+          Open telephony settings
+        </ToastAction>
+      ) : undefined,
+    });
+    setCallingLeadId(null);
+  };
 
   const fetchLeads = React.useCallback(async () => {
     if (!listViews.ready) return;
@@ -101,7 +133,7 @@ export default function LeadsPage() {
         const items = Array.isArray(res.data.data)
           ? res.data.data
           : res.data.data.leads || [];
-        setLeads(items.map(mapApiLeadToLead));
+        setLeads(items.map((item: any) => mapApiLeadToLead(item, maskNumbers)));
         setTotalItems(res.data.pagination?.total || items.length);
       } else {
         setError(res.data.error || "Failed to load leads");
@@ -111,7 +143,7 @@ export default function LeadsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, statusFilter, sourceFilter, dateFrom, dateTo, listViews.ready, listViews.queryKey]);
+  }, [currentPage, debouncedSearch, statusFilter, sourceFilter, dateFrom, dateTo, listViews.ready, listViews.queryKey, maskNumbers]);
 
   React.useEffect(() => {
     fetchLeads();
@@ -226,6 +258,9 @@ export default function LeadsPage() {
         onPageChange={handlePageChange}
         canDelete={canDeleteLead}
         onDelete={handleDeleteLead}
+        canCall={canCall}
+        callingLeadId={callingLeadId}
+        onCall={(lead) => { void callLead(lead); }}
         sorting={listViews.sorting ? [listViews.sorting] : []}
         onSortingChange={(next) => {
           listViews.onSortingChange(next[0] || null);

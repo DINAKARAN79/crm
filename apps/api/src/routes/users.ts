@@ -4,6 +4,8 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { authorize } from '../middleware/authorization';
+import { resolveUserPhoneChange } from '../services/userPhone';
+import { endAllUserSessions, liveOnlineUserIds, rejectManagedUserFields } from '../services/userPresence';
 
 const router = Router();
 
@@ -71,16 +73,16 @@ export const inviteUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().optional().default(''),
-  phone: z.string().trim().optional().transform((value) => value || undefined),
+  phone: z.string({ required_error: 'Phone is required' }).trim().min(1, 'Phone is required'),
   roleIds: z.array(z.string()).optional().default([]),
   roleId: z.string().nullable().optional(),
   password: z.string().min(8).optional(),
   profileId: z.string().optional(),
 });
 
-const updateUserSchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
+export const updateUserSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').optional(),
+  lastName: z.string().trim().optional(),
   phone: z.string().optional(),
   avatar: z.string().optional(),
   profileId: z.string().nullable().optional(),
@@ -90,13 +92,20 @@ const updateUserSchema = z.object({
 
 const resetPasswordSchema = z.object({ password: z.string().min(8) });
 
+async function tenantCountry(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { country: true } });
+  return tenant?.country;
+}
+
 router.get('/', authorize('User', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const { page = 1, limit = 20, isActive, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
+    const onlineIds = await liveOnlineUserIds(req.tenantId!);
     const where: any = { tenantId: req.tenantId! };
     if (isActive !== undefined) where.isActive = isActive === 'true';
+    if (req.query.online === 'true') where.id = { in: onlineIds.length ? onlineIds : ['__none__'] };
     if (search) {
       where.OR = [
         { firstName: { contains: search as string, mode: 'insensitive' } },
@@ -116,7 +125,10 @@ router.get('/', authorize('User', 'read'), async (req: AuthRequest, res: Respons
           phone: true,
           avatar: true,
           isActive: true,
+          isLoggedIn: true,
           lastLoginAt: true,
+          lastSeenAt: true,
+          lastLogoutAt: true,
           createdAt: true,
           profileId: true,
           profile: { select: { id: true, name: true } },
@@ -134,9 +146,10 @@ router.get('/', authorize('User', 'read'), async (req: AuthRequest, res: Respons
       prisma.user.count({ where }),
     ]);
 
+    const online = new Set(onlineIds);
     res.json({
       success: true,
-      data: users,
+      data: users.map((user) => ({ ...user, isLoggedIn: online.has(user.id) })),
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -266,7 +279,14 @@ router.post('/:id/impersonate', authorize('User', 'edit'), async (req: AuthReque
 
 router.post('/', authorize('User', 'create'), async (req: AuthRequest, res: Response) => {
   try {
+    rejectManagedUserFields(req.body);
     const data = inviteUserSchema.parse(req.body);
+    const phone = resolveUserPhoneChange({
+      mode: 'create',
+      incomingPhone: data.phone,
+      country: await tenantCountry(req.tenantId!),
+    });
+    if (!phone.ok || !phone.phone) return res.status(400).json({ success: false, error: phone.ok ? 'Phone is required' : phone.error });
     const email = data.email.trim().toLowerCase();
 
     if (data.profileId) {
@@ -314,7 +334,7 @@ router.post('/', authorize('User', 'create'), async (req: AuthRequest, res: Resp
         email,
         firstName: data.firstName,
         lastName: data.lastName,
-        phone: data.phone,
+        phone: phone.phone,
         passwordHash,
         profileId: data.profileId || undefined,
         roleId: data.roleId || undefined,
@@ -353,8 +373,8 @@ router.post('/', authorize('User', 'create'), async (req: AuthRequest, res: Resp
 
     res.status(201).json({ success: true, data: user });
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ success: false, error: error.errors[0].message });
+    if (error.name === 'ZodError' || error.name === 'ManagedUserFieldError') {
+      return res.status(400).json({ success: false, error: error.name === 'ZodError' ? error.errors[0].message : error.message });
     }
     if (
       error.code === 'P2002'
@@ -371,6 +391,7 @@ router.post('/', authorize('User', 'create'), async (req: AuthRequest, res: Resp
 
 router.put('/:id', authorize('User', 'edit'), async (req: AuthRequest, res: Response) => {
   try {
+    rejectManagedUserFields(req.body);
     const existingUser = await prisma.user.findFirst({
       where: { id: req.params.id, tenantId: req.tenantId! },
     });
@@ -380,6 +401,13 @@ router.put('/:id', authorize('User', 'edit'), async (req: AuthRequest, res: Resp
     }
 
     const data = updateUserSchema.parse(req.body);
+    const phone = resolveUserPhoneChange({
+      mode: 'update',
+      existingPhone: existingUser.phone,
+      incomingPhone: data.phone,
+      country: await tenantCountry(req.tenantId!),
+    });
+    if (!phone.ok) return res.status(400).json({ success: false, error: phone.error });
 
     if (data.profileId) {
       const profile = await prisma.profile.findFirst({
@@ -414,6 +442,8 @@ router.put('/:id', authorize('User', 'edit'), async (req: AuthRequest, res: Resp
 
     const userData = { ...data };
     delete userData.roleIds; // role assignments are handled via /api/roles endpoints, not the user update body
+    if (phone.phone === undefined) delete userData.phone;
+    else userData.phone = phone.phone;
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: userData,
@@ -454,8 +484,8 @@ router.put('/:id', authorize('User', 'edit'), async (req: AuthRequest, res: Resp
 
     res.json({ success: true, data: user });
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ success: false, error: error.errors[0].message });
+    if (error.name === 'ZodError' || error.name === 'ManagedUserFieldError') {
+      return res.status(400).json({ success: false, error: error.name === 'ZodError' ? error.errors[0].message : error.message });
     }
     console.error('Update user error:', error);
     res.status(500).json({ success: false, error: 'Failed to update user' });
@@ -469,6 +499,7 @@ router.put('/:id/password', authorize('User', 'edit'), async (req: AuthRequest, 
     if (!existingUser) return res.status(404).json({ success: false, error: 'User not found' });
 
     await prisma.user.update({ where: { id: req.params.id }, data: { passwordHash: await bcrypt.hash(data.password, 12) } });
+    await endAllUserSessions(existingUser.id, req.tenantId!, 'PASSWORD_CHANGED');
     await prisma.auditLog.create({
       data: { tenantId: req.tenantId!, userId: req.user!.id, action: 'UPDATE', objectType: 'User', objectId: existingUser.id, newValues: { passwordReset: true } },
     });
@@ -499,6 +530,7 @@ router.put('/:id/deactivate', authorize('User', 'edit'), async (req: AuthRequest
       data: { isActive: false },
       select: { id: true, email: true, firstName: true, lastName: true, isActive: true },
     });
+    await endAllUserSessions(user.id, req.tenantId!, 'USER_DEACTIVATED');
 
     await prisma.auditLog.create({
       data: {

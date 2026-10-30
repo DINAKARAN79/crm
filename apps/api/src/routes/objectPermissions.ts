@@ -3,9 +3,14 @@ import { prisma } from '@dct-crm/db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { invalidateCache } from '../services/metadata';
+import { denyUnlessUserObjectAdmin } from '../services/userObjectAccess';
 
 const router = Router();
 router.use(authenticate);
+router.use('/:objectName', (req: AuthRequest, res: Response, next) => {
+  if (denyUnlessUserObjectAdmin(req, res)) return;
+  next();
+});
 router.use(requirePermission('PROFILE_PERMISSION_MANAGE'));
 
 router.get('/:objectName', async (req: AuthRequest, res: Response) => {

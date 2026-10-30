@@ -25,12 +25,18 @@ const database = vi.hoisted(() => ({
   notificationCreateMany: vi.fn(),
 }));
 
-vi.mock('@dct-crm/db', () => ({
-  prisma: {
+vi.mock('@dct-crm/db', () => {
+  const prisma = {
     user: {
       findUnique: database.userFindUnique,
       findMany: database.userFindMany,
       findFirst: database.userFindFirst,
+      update: vi.fn(async () => ({})),
+    },
+    userSession: {
+      create: vi.fn(async ({ data }: { data: unknown }) => data),
+      findUnique: vi.fn(async () => null),
+      update: vi.fn(async () => ({})),
     },
     tenant: { findUnique: database.tenantFindUnique },
     impersonationSession: {
@@ -48,8 +54,10 @@ vi.mock('@dct-crm/db', () => ({
     },
     auditLog: { create: database.auditCreate },
     notification: { createMany: database.notificationCreateMany },
-  },
-}));
+  } as Record<string, unknown>;
+  prisma.$transaction = async (fn: (client: typeof prisma) => Promise<unknown>) => fn(prisma);
+  return { prisma };
+});
 
 import { authenticate, generateToken } from '../middleware/auth';
 import { companyImpersonationRouter } from './impersonation';

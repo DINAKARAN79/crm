@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TelephonyAgentPermission, User } from '@prisma/client';
 
 vi.mock('@dct-crm/db', () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+    },
+    telephonyAgentPermission: {
+      findUnique: vi.fn(),
     },
     profileFieldPermission: {
       findMany: vi.fn(),
@@ -107,6 +111,51 @@ describe('effective field permissions', () => {
     expect(result).toEqual([
       { fieldId: 'field-1', fieldName: 'Name', canRead: true, canEdit: true },
     ]);
+  });
+
+  it('lets a tenant-scoped agent override deny a profile-inherited telephony grant', async () => {
+    const user: User = {
+      id: 'user-1',
+      tenantId: 'tenant-1',
+      email: 'user@example.com',
+      passwordHash: 'hash',
+      firstName: 'Test',
+      lastName: 'Agent',
+      phone: null,
+      avatar: null,
+      isActive: true,
+      isSuperAdmin: false,
+      profileId: 'profile-1',
+      lastLoginAt: null,
+      lastSeenAt: null,
+      lastLogoutAt: null,
+      isLoggedIn: false,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      roleId: null,
+    };
+    const override: TelephonyAgentPermission = {
+      id: 'override-1',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      canUse: false,
+      updatedById: 'admin-1',
+      updatedAt: new Date(),
+    };
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user);
+    vi.mocked(prisma.telephonyAgentPermission.findUnique).mockResolvedValue(override);
+    const effectivePermissions = vi.spyOn(EffectivePermissionService, 'getEffectivePermissions').mockResolvedValue([
+      { name: 'TELEPHONY_CALL', module: 'TELEPHONY', action: 'CALL', source: 'PROFILE', sourceName: 'Sales' },
+    ]);
+
+    await expect(EffectivePermissionService.hasPermission('user-1', 'TELEPHONY_CALL')).resolves.toBe(false);
+    effectivePermissions.mockRestore();
+    expect(prisma.telephonyAgentPermission.findUnique).toHaveBeenCalledWith({
+      where: { tenantId_userId: { tenantId: 'tenant-1', userId: 'user-1' } },
+      select: { canUse: true },
+    });
   });
 
   it('removes stale create permission IDs when object access is set to read-only', () => {

@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -15,6 +16,18 @@ async function main() {
         slug: 'platform',
         companyCode: 'PLATFORM',
         settings: { type: 'platform' },
+      },
+    });
+    const placeholder = randomBytes(32).toString('hex');
+    await prisma.apiKey.create({
+      data: {
+        tenantId: platformTenant.id,
+        name: 'Default key',
+        keyPrefix: `pending_${placeholder.slice(0, 12)}`,
+        keyHash: createHash('sha256').update(`pending:${platformTenant.id}:${placeholder}`).digest('hex'),
+        scopes: ['leads:read', 'leads:write'],
+        status: 'pending_reveal',
+        createdById: 'seed',
       },
     });
     console.log('Created platform tenant');

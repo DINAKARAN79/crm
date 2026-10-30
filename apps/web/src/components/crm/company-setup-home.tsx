@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, Settings } from "lucide-react";
+import { ChevronDown, Loader2, Phone, Settings } from "lucide-react";
 import { companyApi, getSessionToken, rememberSuperadminSession } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +113,15 @@ export function CompanySetupHomeButton({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <div className="flex items-center">
+      <div className="flex flex-wrap items-center justify-end">
+        <Button
+          variant="outline"
+          className="mr-2"
+          onClick={() => router.push(`/setup/integrations/telephony?tenantId=${encodeURIComponent(tenantId)}`)}
+        >
+          <Phone className="mr-2 h-4 w-4" />
+          Telephony
+        </Button>
         <Button variant="outline" className="rounded-r-none" disabled={opening} onClick={() => void open(false)}>
           {opening ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings className="mr-2 h-4 w-4" />}
           Setup Home

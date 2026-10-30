@@ -128,6 +128,9 @@ model User {
   profileId            String?
   profile              Profile?  @relation(fields: [profileId], references: [id])
   lastLoginAt          DateTime?
+  lastSeenAt           DateTime?
+  lastLogoutAt         DateTime?
+  isLoggedIn           Boolean   @default(false)
   passwordResetToken   String?
   passwordResetExpires DateTime?
   createdAt            DateTime  @default(now())
@@ -1617,6 +1620,10 @@ model CallDetail {
   startAt            DateTime
   status             String   @default("COMPLETED") @db.VarChar(50)
   notes              String?
+  disposition        String?  @db.VarChar(120)
+  source             String?  @db.VarChar(40)
+  providerCallId     String?  @db.VarChar(255)
+  providerResponse   Json?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -2455,22 +2462,78 @@ model ApiKey {
   tenantId           String
   name               String
   keyPrefix          String
+  publicId           String?   @unique
   keyHash            String    @unique
+  encryptedKey       String?
+  keyIv              String?
+  keyTag             String?
+  encryptionKeyVersion Int     @default(1)
+  needsRegenerate    Boolean   @default(false)
+  revealedToCompanyAdminAt DateTime?
   scopes             String[]
+  status             String    @default("active")
   rateLimitPerMinute Int       @default(120)
   ipAllowlist        String[]  @default([])
   lastUsedAt         DateTime?
   expiresAt          DateTime?
+  graceUntil         DateTime?
   revokedAt          DateTime?
   createdById        String
   createdAt          DateTime  @default(now())
 
   @@index([tenantId])
   @@index([tenantId, revokedAt])
+  @@index([keyPrefix])
   @@map("api_keys")
 }
 
+model ApiKeyRequestLog {
+  id         String   @id @default(cuid())
+  apiKeyId   String
+  tenantId   String
+  method     String
+  path       String
+  status     Int
+  durationMs Int
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("api_key_request_logs")
+}
+
 // Superadmin "Setup Home" sessions. Foreign keys are omitted so Tenant and User stay unchanged.
+// One row per browser login. The raw token is never stored.
+model UserSession {
+  id               String    @id @default(cuid())
+  tenantId         String
+  userId           String
+  sessionTokenHash String    @unique
+  browser          String?
+  os               String?
+  deviceType       String?
+  ipAddress        String?
+  createdAt        DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  endedAt          DateTime?
+  endReason        String?
+  isImpersonation  Boolean   @default(false)
+
+  @@index([tenantId, userId, endedAt])
+  @@index([tenantId, lastSeenAt])
+  @@map("user_sessions")
+}
+
+model PresenceSetting {
+  tenantId                  String   @id
+  idleTimeoutSeconds        Int      @default(120)
+  heartbeatIntervalSeconds  Int      @default(30)
+  updatedAt                 DateTime @updatedAt
+  updatedById               String?
+
+  @@map("presence_settings")
+}
+
 model ImpersonationSession {
   id                String    @id @default(cuid())
   superadminId      String
@@ -2534,4 +2597,68 @@ model TelephonyCallReceipt {
   @@index([integrationId])
   @@index([leadId])
   @@map("telephony_call_receipts")
+}
+
+// Outbound click-to-call settings. tenantId is stored without a Tenant relation.
+model TelephonySetting {
+  id                     String   @id @default(cuid())
+  tenantId               String   @unique
+  clickToCallUrl         String   @default("https://bizcall.cxteletech.com/api/integration/click2call")
+  authHeaderName         String   @default("X-API-KEY")
+  useBearerPrefix        Boolean  @default(false)
+  noAuthRequired         Boolean  @default(false)
+  allowTestUrl           Boolean  @default(false)
+  callIdFieldPath        String   @default("originateUuid")
+  callerId               String?
+  encryptedCredentials   String?
+  keyLast4               String?
+  encryptedExtraHeaders  String?
+  isActive               Boolean  @default(false)
+  updatedById            String?
+  dialpadUrl             String   @default("https://bizcall.cxteletech.com/embed/dialpad")
+  dialpadMode            String   @default("DOCKED")
+  callMethod             String   @default("SERVER_API")
+  defaultDockState       String   @default("COLLAPSED")
+  theme                  String   @default("CRM")
+  productionOrigin       String?
+  duplicateGuardSeconds  Int      @default(10)
+  callsPerMinute         Int      @default(10)
+  maskNumbers            Boolean  @default(false)
+  blockDnc               Boolean  @default(false)
+  dncNumbers             String   @default("")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("telephony_settings")
+}
+
+model TelephonyAgentPermission {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  canUse      Boolean
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@map("telephony_agent_permissions")
+}
+
+// One row per click-to-call attempt. No tokens and no full phone numbers.
+model TelephonyRequestLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  leadId        String?
+  maskedNumber  String?
+  step          String
+  code          String
+  httpStatus    Int?
+  durationMs    Int?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("telephony_request_logs")
 }

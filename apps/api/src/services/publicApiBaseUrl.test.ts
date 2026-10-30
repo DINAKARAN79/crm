@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { PRIVATE_API_URL_WARNING, getPublicApiBaseUrl, probeOwnApiHealth } from './publicApiBaseUrl';
+import { describe, expect, it } from 'vitest';
+import { PRIVATE_API_URL_WARNING, getPublicApiBaseUrl } from './publicApiBaseUrl';
 
 describe('public API base URL', () => {
   it('uses PUBLIC_API_BASE_URL and drops any path', () => {
@@ -71,19 +71,5 @@ describe('public API base URL', () => {
     expect(resolved.baseUrl).toBe('');
     expect(resolved.source).toBe('rejected');
     expect(JSON.stringify(resolved)).not.toContain('evil.example');
-  });
-
-  it('probes only this API health route on the resolved host', async () => {
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
-      void input;
-      return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
-    });
-    const result = await probeOwnApiHealth('https://api.example.com', fetchImpl);
-    expect(result.ok).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe('https://api.example.com/api/health');
-    const refused = await probeOwnApiHealth('', fetchImpl);
-    expect(refused.ok).toBe(false);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

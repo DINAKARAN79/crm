@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { leadApi, projectApi, userApi } from "@/lib/api";
+import { leadApi, projectApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -128,7 +128,7 @@ export default function NewLeadPage() {
       try {
         const [projectsResponse, usersResponse] = await Promise.all([
           projectApi.listAll({ isActive: true }),
-          userApi.list({ limit: 200, isActive: true }),
+          leadApi.salesUsers(),
         ]);
         const userResponseData = usersResponse.data.data;
         const users = Array.isArray(userResponseData)
@@ -136,11 +136,7 @@ export default function NewLeadPage() {
           : [];
         if (active) {
           setProjects(projectsResponse);
-          setSalesUsers(
-            (users as SalesUser[]).filter(
-              (user) => user.isActive !== false && /^sales(?:\b|$)/i.test(user.profile?.name || ""),
-            ),
-          );
+          setSalesUsers(users as SalesUser[]);
         }
       } catch (reason: any) {
         if (active) {

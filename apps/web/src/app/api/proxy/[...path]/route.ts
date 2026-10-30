@@ -36,6 +36,7 @@ async function proxyRequest(
   const init: RequestInit = {
     method,
     headers,
+    cache: 'no-store',
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
@@ -52,6 +53,17 @@ async function proxyRequest(
   const response = await fetch(targetUrl, init);
 
   const responseDataContentType = response.headers.get('content-type') || '';
+  if (responseDataContentType.includes('text/event-stream') && response.body) {
+    return new Response(response.body, {
+      status: response.status,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      },
+    });
+  }
   const isBinary = responseDataContentType.startsWith('image/') ||
     responseDataContentType.startsWith('application/octet-stream') ||
     responseDataContentType.includes('pdf') ||
@@ -80,6 +92,15 @@ async function proxyRequest(
 
   if (responseDataContentType) {
     res.headers.set('content-type', responseDataContentType);
+  }
+  const upstreamCache = response.headers.get('cache-control');
+  if (path.includes('api-key')) {
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.headers.set('Pragma', 'no-cache');
+  } else if (path.includes('active-users')) {
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  } else if (upstreamCache) {
+    res.headers.set('Cache-Control', upstreamCache);
   }
 
   return res;

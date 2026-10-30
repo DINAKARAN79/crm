@@ -35,6 +35,8 @@ import {
   followUpApi,
   reportApi,
 } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
+import { rememberHomeProfile, userHomePath } from "@/lib/user-home-path";
 
 interface Widget {
   id: string;
@@ -226,14 +228,6 @@ const topRowWidgetIds = new Set([
 ]);
 const responseData = (response: any) => response?.data?.data ?? response?.data;
 const DEBUG_DND = false;
-
-function slugifyProfileName(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function formatDashboardTimeAgo(value: string) {
   const diff = Date.now() - new Date(value).getTime();
@@ -835,6 +829,7 @@ function HomepageBuilder() {
   const params = useParams<{ profileName?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, tenant } = useAuth();
   const tenantIdOverride = searchParams.get("tenantId") || undefined;
   const profileNameOverride = searchParams.get("profile");
   const profileIdOverride = searchParams.get("profileId");
@@ -1387,13 +1382,8 @@ function HomepageBuilder() {
       );
       const destinationProfileName =
         destinationProfile?.name || profileNameOverride || name.trim();
-      const profileParams = new URLSearchParams({
-        profileId: destinationProfileId,
-        profileLabel: destinationProfileName,
-      });
-      router.push(
-        `/profiles/${slugifyProfileName(destinationProfileName)}?${profileParams}`,
-      );
+      rememberHomeProfile({ id: destinationProfileId, name: destinationProfileName });
+      router.push(userHomePath(tenant, user?.id));
     } catch (saveError: any) {
       setError(
         saveError.response?.data?.error || "Unable to save the home page.",

@@ -2,19 +2,13 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ChevronDown, Copy, Download, KeyRound, Loader2, Search } from "lucide-react";
-import api, { companyApi } from "@/lib/api";
+import { AlertCircle, ChevronDown, Copy, Download, KeyRound, Loader2 } from "lucide-react";
+import { CompanyApiCards } from "@/components/crm/company-api-cards";
+import { companyApi } from "@/lib/api";
+import { companyApiUrl } from "@/lib/company-api-url";
 import { CompanyApiKeys } from "@/components/crm/company-api-keys";
-import { CompanyConnection, type PublicBaseUrl } from "@/components/crm/company-connection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
@@ -87,11 +81,11 @@ interface RegistryObject {
   description?: string | null;
 }
 
-interface ApiKeyRecord {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  revokedAt?: string | null;
+interface PublicBaseUrl {
+  baseUrl: string;
+  source: "env" | "request" | "rejected";
+  privateHost: boolean;
+  warning: string | null;
 }
 
 interface FieldError {
@@ -140,7 +134,8 @@ function pretty(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-function exampleUrl(baseUrl: string, path: string) {
+function exampleUrl(baseUrl: string, path: string, tenantId?: string, params?: ApiParam[]) {
+  if (tenantId) return companyApiUrl({ baseUrl, path, tenantId, params }).url;
   return `${baseUrl}${path.replace(/:([A-Za-z0-9_]+)/g, "cmexample000000000000000001")}`;
 }
 
@@ -174,34 +169,33 @@ export function ApiOperationRow({
   baseUrl,
   open,
   onToggle,
-  keys,
   secret,
   onSecretChange,
   detailsOnly = false,
+  tenantId,
 }: {
   operation: ApiOperation;
   objectName: string;
   baseUrl: string;
   open: boolean;
   onToggle?: () => void;
-  keys: ApiKeyRecord[];
   secret: string;
   onSecretChange: (value: string) => void;
   detailsOnly?: boolean;
+  tenantId?: string;
 }) {
   const { toast } = useToast();
   const [payloadMode, setPayloadMode] = React.useState<"required" | "full">("required");
   const [language, setLanguage] = React.useState<"curl" | "fetch" | "python">("curl");
   const [tryBody, setTryBody] = React.useState(operation.body ? pretty(operation.body.requiredExample) : "");
   const [sandbox, setSandbox] = React.useState(operation.method !== "GET");
-  const [keyId, setKeyId] = React.useState(keys.find((key) => !key.revokedAt)?.id || "");
   const [running, setRunning] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<FieldError[]>([]);
   const [result, setResult] = React.useState<{ status: number; ms: number; body: unknown } | null>(null);
   const activePayload = operation.body
     ? (payloadMode === "required" ? operation.body.requiredExample : operation.body.fullExample)
     : null;
-  const url = exampleUrl(baseUrl, operation.path);
+  const url = exampleUrl(baseUrl, operation.path, tenantId, operation.params);
   const errorFields = new Set(fieldErrors.map((error) => error.field));
 
   React.useEffect(() => {
@@ -417,15 +411,6 @@ export function ApiOperationRow({
           <section className="space-y-2">
             <h4 className="font-medium">Try it</h4>
             <div className="flex flex-wrap items-end gap-2">
-              <label className="text-xs text-muted-foreground">
-                API key
-                <select value={keyId} onChange={(event) => setKeyId(event.target.value)} className="mt-1 block h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-                  <option value="">Select a key</option>
-                  {keys.map((key) => (
-                    <option key={key.id} value={key.id}>{key.name} · {key.keyPrefix}{key.revokedAt ? " · revoked" : ""}</option>
-                  ))}
-                </select>
-              </label>
               <label className="min-w-[220px] flex-1 text-xs text-muted-foreground">
                 Secret
                 <input value={secret} onChange={(event) => onSecretChange(event.target.value)} placeholder="dct_..." className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground" />
@@ -457,6 +442,13 @@ export function ApiOperationRow({
             {result && (
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Status {result.status || "—"} · {result.ms} ms</p>
+                {(result.status === 401 || result.status === 403 || result.status === 429) && (
+                  <p className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
+                    {typeof result.body === "object" && result.body && "code" in result.body
+                      ? `${String((result.body as { code?: string }).code || result.status)}: ${String((result.body as { message?: string }).message || "Request rejected")}`
+                      : `Request rejected (${result.status})`}
+                  </p>
+                )}
                 <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">{pretty(result.body)}</pre>
               </div>
             )}
@@ -500,14 +492,12 @@ export function ApiTopicPanel({
   topic,
   registry,
   baseUrl,
-  keys,
   secret,
   onSecretChange,
 }: {
   topic: ApiTopic | null;
   registry: RegistryObject;
   baseUrl: string;
-  keys: ApiKeyRecord[];
   secret: string;
   onSecretChange: (value: string) => void;
 }) {
@@ -639,7 +629,6 @@ export function ApiTopicPanel({
               baseUrl={baseUrl}
               open
               detailsOnly
-              keys={keys}
               secret={secret}
               onSecretChange={onSecretChange}
             />
@@ -650,34 +639,24 @@ export function ApiTopicPanel({
   );
 }
 
-export function CompanyApiReference({ tenantId, companyName }: { tenantId: string; companyName: string }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function CompanyApiReference({ tenantId, companyName, companyCode }: { tenantId: string; companyName: string; companyCode: string }) {
   const [catalog, setCatalog] = React.useState<ApiCatalog | null>(null);
-  const [objects, setObjects] = React.useState<RegistryObject[]>([]);
-  const [keys, setKeys] = React.useState<ApiKeyRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [topicQuery, setTopicQuery] = React.useState("");
-  const [keysOpen, setKeysOpen] = React.useState(false);
   const [secret, setSecret] = React.useState("");
+  const [detail, setDetail] = React.useState<{ topic: ApiTopic; operation: ApiOperation } | null>(null);
   const [base, setBase] = React.useState<PublicBaseUrl>({ baseUrl: "", source: "rejected", privateHost: false, warning: null });
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [catalogResponse, objectResponse, keyResponse, baseResponse] = await Promise.all([
+      const [catalogResponse, baseResponse] = await Promise.all([
         companyApi.apiCatalog(),
-        api.get("/api/objects", { params: { tenantId, includeInactive: "true" } }),
-        companyApi.apiKeys.list(tenantId),
         companyApi.apiBaseUrl(),
       ]);
       if (!catalogResponse.data?.success) throw new Error(catalogResponse.data?.error || "Failed to load the API catalog");
-      if (!objectResponse.data?.success) throw new Error(objectResponse.data?.error || "Failed to load objects");
       setCatalog(catalogResponse.data.data as ApiCatalog);
-      setObjects((objectResponse.data.data || []) as RegistryObject[]);
-      setKeys((keyResponse.data?.data || []) as ApiKeyRecord[]);
       if (baseResponse.data?.success && baseResponse.data.data) setBase(baseResponse.data.data as PublicBaseUrl);
     } catch (loadError: unknown) {
       const message = loadError && typeof loadError === "object" && "response" in loadError
@@ -688,29 +667,10 @@ export function CompanyApiReference({ tenantId, companyName }: { tenantId: strin
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, []);
 
   React.useEffect(() => { void load(); }, [load]);
-
-  const selectedName = (searchParams.get("object") || "").toLowerCase();
-  const visibleObjects = objects.filter((object) =>
-    `${object.label} ${object.name}`.toLowerCase().includes(topicQuery.toLowerCase()),
-  );
-  const selected = objects.find((object) => object.name.toLowerCase() === selectedName) || visibleObjects[0] || objects[0];
-  const topic = catalog?.topics.find((item) => item.objectName.toLowerCase() === selected?.name.toLowerCase()) || null;
-
-  const chooseObject = (name: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("view", "api");
-    params.set("object", name.toLowerCase());
-    params.delete("op");
-    router.replace(`/admin/companies?${params.toString()}`);
-  };
-
-  const refreshKeys = React.useCallback(async () => {
-    const keyResponse = await companyApi.apiKeys.list(tenantId);
-    setKeys((keyResponse.data?.data || []) as ApiKeyRecord[]);
-  }, [tenantId]);
+  React.useEffect(() => { setDetail(null); }, [tenantId]);
 
   const downloadSpec = () => {
     if (!catalog) return;
@@ -736,7 +696,7 @@ export function CompanyApiReference({ tenantId, companyName }: { tenantId: strin
           <Button type="button" variant="outline" onClick={downloadSpec} disabled={!catalog}>
             <Download className="h-4 w-4" /> Download OpenAPI JSON
           </Button>
-          <Button type="button" onClick={() => setKeysOpen(true)}>
+          <Button type="button" onClick={() => document.getElementById("company-api-key-card")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
             <KeyRound className="h-4 w-4" /> API Keys
           </Button>
         </div>
@@ -747,63 +707,44 @@ export function CompanyApiReference({ tenantId, companyName }: { tenantId: strin
           <Button type="button" size="sm" variant="outline" onClick={() => void load()}>Retry</Button>
         </div>
       )}
+      <CompanyApiKeys
+        tenantId={tenantId}
+        companyName={companyName}
+        companyCode={companyCode}
+        onSecret={setSecret}
+      />
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input value={topicQuery} onChange={(event) => setTopicQuery(event.target.value)} placeholder="Search objects" className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm" />
+      ) : catalog ? (
+        <div className="space-y-4">
+          <CompanyApiCards<ApiOperation, ApiTopic>
+            topics={catalog.topics}
+            baseUrl={base.baseUrl || catalog.baseUrl}
+            tenantId={tenantId}
+            onDetails={(topic, operation) => setDetail({ topic, operation })}
+          />
+        </div>
+      ) : null}
+      {detail && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={() => setDetail(null)}>
+          <div className="h-full w-full max-w-2xl overflow-y-auto bg-background p-4 shadow-xl" onClick={(event) => event.stopPropagation()} role="dialog" aria-label={detail.operation.summary}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold">{detail.operation.summary}</h3>
+              <Button type="button" size="sm" variant="outline" onClick={() => setDetail(null)}>Close</Button>
             </div>
-            <div className="flex gap-1 overflow-x-auto md:block md:max-h-[70vh] md:space-y-1 md:overflow-y-auto">
-              {visibleObjects.map((object) => (
-                <button
-                  key={object.name}
-                  type="button"
-                  onClick={() => chooseObject(object.name)}
-                  className={`shrink-0 rounded-md px-3 py-2 text-left text-sm md:block md:w-full ${selected?.name === object.name ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >
-                  {object.label}
-                </button>
-              ))}
-              {!visibleObjects.length && <p className="px-2 py-4 text-sm text-muted-foreground">No objects match.</p>}
-            </div>
+            <ApiOperationRow
+              operation={detail.operation}
+              objectName={detail.topic.objectName}
+              baseUrl={base.baseUrl || catalog?.baseUrl || ""}
+              open
+              detailsOnly
+              tenantId={tenantId}
+              secret={secret}
+              onSecretChange={setSecret}
+            />
           </div>
-          {selected && catalog ? (
-            <div className="space-y-4">
-              <CompanyConnection
-                tenantId={tenantId}
-                companyName={companyName}
-                base={base}
-                keys={keys}
-                secret={secret}
-                leadExample={catalog.topics.find((item) => item.objectName === "Lead")?.operations.find((operation) => operation.id === "post-create")?.body?.requiredExample || { lastName: "Kumar", phone: "+919000000000", company: "Test Co" }}
-                onCreateKey={() => setKeysOpen(true)}
-              />
-              <ApiTopicPanel
-                topic={topic}
-                registry={selected}
-                baseUrl={base.baseUrl}
-                keys={keys}
-                secret={secret}
-                onSecretChange={setSecret}
-              />
-            </div>
-          ) : (
-            <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">This company has no objects in Object Manager.</div>
-          )}
         </div>
       )}
-      <Dialog open={keysOpen} onOpenChange={(open) => { setKeysOpen(open); if (!open) void refreshKeys(); }}>
-        <DialogContent className="max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>API Keys</DialogTitle>
-            <DialogDescription>Create, rotate, or revoke keys for {companyName}.</DialogDescription>
-          </DialogHeader>
-          <CompanyApiKeys tenantId={tenantId} onSecret={setSecret} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -21,7 +21,7 @@ vi.mock('@dct-crm/db', () => ({
 }));
 
 import { authenticate } from './auth';
-import { hashApiKey, resetApiKeyRateLimits } from '../services/apiKeys';
+import { hashApiKey, resetApiKeyCache, resetApiKeyRateLimits } from '../services/apiKeys';
 
 const servers: Server[] = [];
 
@@ -96,13 +96,17 @@ describe('API key authentication', () => {
     const blocked = await fetch(`http://127.0.0.1:${port}/api/projects`, { headers });
     expect(blocked.status).toBe(403);
 
+    resetApiKeyCache();
     database.apiKeyFindUnique.mockResolvedValueOnce({
       id: 'key-2',
       tenantId: 'tenant-b',
+      keyHash: hashApiKey(rawKey),
       scopes: ['follow-ups:read'],
+      status: 'active',
       rateLimitPerMinute: 120,
       ipAllowlist: [],
       expiresAt: null,
+      graceUntil: null,
       revokedAt: null,
       createdById: 'super-a',
     });
@@ -111,6 +115,7 @@ describe('API key authentication', () => {
     expect(otherCompany.status).toBe(403);
     expect(otherBody.error).toMatch(/missing the leads:read scope/);
 
+    resetApiKeyCache();
     const limited = await fetch(`http://127.0.0.1:${port}/api/leads`, { headers });
     expect(limited.status).toBe(429);
   });

@@ -13,7 +13,7 @@ import {
   Globe,
   KeyRound,
   LayoutTemplate,
-  Mail,
+  Phone,
   Settings,
   ShieldCheck,
   Users,
@@ -27,6 +27,7 @@ const groups = [
     description: "Manage people and organization details.",
     items: [
       { label: "Users", href: "/setup/general/users", icon: Users },
+      { label: "Active Sessions", href: "/setup/general/users/active-sessions", icon: Users },
       { label: "Company Settings", href: "/setup/general/company-settings", icon: Building2 },
     ],
   },
@@ -54,6 +55,14 @@ const groups = [
     items: [
       { label: "Round Robins", href: "/setup/customization/rrqueues", icon: GitBranch },
       { label: "Object Manager", href: "/admin/object-manager", icon: Boxes },
+    ],
+  },
+  {
+    title: "Integrations",
+    description: "Connect the CRM to outside systems.",
+    items: [
+      { label: "Telephony", href: "/setup/integrations/telephony", icon: Phone },
+      { label: "API access", href: "/setup/integrations/api-access", icon: KeyRound },
     ],
   },
   {

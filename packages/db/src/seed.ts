@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'crypto';
 import { PrismaClient, LeadStatus, LeadSource, SiteVisitStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -66,6 +67,29 @@ async function main() {
         currency: 'INR',
         dateFormat: 'DD/MM/YYYY',
       },
+    },
+  });
+
+  const placeholder = randomBytes(32).toString('hex');
+  await prisma.apiKey.create({
+    data: {
+      tenantId: tenant.id,
+      name: 'Default key',
+      keyPrefix: `pending_${placeholder.slice(0, 12)}`,
+      keyHash: createHash('sha256').update(`pending:${tenant.id}:${placeholder}`).digest('hex'),
+      scopes: [
+        'leads:read', 'leads:write',
+        'follow-ups:read', 'follow-ups:write',
+        'call-details:read', 'call-details:write',
+        'site-visits:read', 'site-visits:write',
+        'bookings:read', 'bookings:write',
+        'projects:read', 'projects:write',
+        'units:read', 'units:write',
+        'enquiries:read', 'enquiries:write',
+        'activities:read', 'activities:write',
+      ],
+      status: 'pending_reveal',
+      createdById: 'seed',
     },
   });
 

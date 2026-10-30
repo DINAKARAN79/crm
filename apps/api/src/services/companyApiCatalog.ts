@@ -153,7 +153,7 @@ function headers(scope: string | null, withBody: boolean): ApiParamDoc[] {
       type: 'string',
       required: true,
       description: scope
-        ? 'Bearer <key>. X-API-Key is also accepted. The key selects the company, so tenantId is not sent.'
+        ? 'Bearer <API key>, or X-API-Key. tenantId in the URL must match this key’s company.'
         : 'Bearer session token. A company API key cannot call this path.',
     },
   ];
@@ -469,10 +469,22 @@ function buildTopic(spec: WriteSpec): { topic: ApiTopicDoc; check?: CatalogCheck
     });
   }
 
-  const documented = operations.map((operation) => ({
-    ...operation,
-    queryExample: operation.method === 'GET' ? queryExampleFrom(operation.params) : null,
-  }));
+  const tenantParam = query(
+    'tenantId',
+    'string',
+    'Selected company id. It must match the API key or the signed-in company. It does not authenticate the caller.',
+    true,
+  );
+  const documented = operations.map((operation) => {
+    const params = operation.params.some((param) => param.name === 'tenantId')
+      ? operation.params
+      : [...operation.params, tenantParam];
+    return {
+      ...operation,
+      params,
+      queryExample: operation.method === 'GET' ? queryExampleFrom(params) : null,
+    };
+  });
 
   const check = spec.createSchema
     ? {
@@ -572,8 +584,8 @@ const built = [
   }),
   buildTopic({
     objectName: 'FollowUp',
-    label: 'Follow-up',
-    description: 'Schedule and update follow-ups.',
+    label: 'Task / Follow-up',
+    description: 'Schedule and update follow-ups. Task records use this Follow-up route.',
     collectionPath: '/api/follow-ups',
     itemPath: '/api/follow-ups/:id',
     createPath: '/api/follow-ups',

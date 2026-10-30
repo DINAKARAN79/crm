@@ -71,6 +71,8 @@ interface LayoutDrivenFormProps {
   onEditOwner?: () => void;
   canEditLayout?: boolean;
   onSaveLayout?: (sections: LayoutSection[]) => Promise<void>;
+  onCallPhone?: (fieldName: "phone" | "mobile" | "secondaryPhone") => void;
+  callingPhoneField?: string | null;
 }
 
 export default function LayoutDrivenForm({
@@ -88,6 +90,8 @@ export default function LayoutDrivenForm({
   onEditOwner,
   canEditLayout = false,
   onSaveLayout,
+  onCallPhone,
+  callingPhoneField = null,
 }: LayoutDrivenFormProps) {
   const { leadStatuses, getLeadStatusLabel } = useAuth();
   const [layout, setLayout] = React.useState<any>(propLayout || null);
@@ -474,12 +478,14 @@ export default function LayoutDrivenForm({
         .join(", ");
     }
     if (typeof value === "object") {
-      return String(value.name || value.label || value.displayName || value.id || "—");
+      const person = [value.firstName, value.lastName].filter(Boolean).join(" ").trim();
+      return String(person || value.name || value.label || value.displayName || value.title || "—");
     }
     if (field.fieldType === "lookup") {
       const relation = data[field.name.replace(/Id$/, "")];
       if (relation && typeof relation === "object") {
-        return String(relation.name || relation.title || relation.label || relation.recordNumber || value);
+        const person = [relation.firstName, relation.lastName].filter(Boolean).join(" ").trim();
+        return String(person || relation.name || relation.title || relation.label || relation.recordNumber || "—");
       }
     }
     return String(value);
@@ -615,6 +621,15 @@ export default function LayoutDrivenForm({
                             <a className="text-primary hover:underline" href={`mailto:${String(data[field.name])}`}>
                               {displayValue(field, data[field.name])}
                             </a>
+                          ) : onCallPhone && objectName === "Lead" && (field.name === "phone" || field.name === "mobile" || field.name === "secondaryPhone") && data[field.name] ? (
+                            <button
+                              type="button"
+                              className="text-left text-[#1479a8] hover:underline disabled:opacity-60"
+                              disabled={Boolean(callingPhoneField)}
+                              onClick={() => onCallPhone(field.name as "phone" | "mobile" | "secondaryPhone")}
+                            >
+                              {callingPhoneField === field.name ? "Calling..." : displayValue(field, data[field.name])}
+                            </button>
                           ) : (
                             displayValue(
                               field,

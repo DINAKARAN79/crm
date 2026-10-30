@@ -4,9 +4,14 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { getAllFieldDefinitions, getPageLayout, invalidateCache } from '../services/metadata';
 import { countLayoutAssignments, validateIncomingSections, writeLayoutAudit } from '../services/layoutAccess';
+import { denyUnlessUserObjectAdmin } from '../services/userObjectAccess';
 
 const router = Router();
 router.use(authenticate);
+router.use('/:objectName', (req: AuthRequest, res: Response, next) => {
+  if (denyUnlessUserObjectAdmin(req, res)) return;
+  next();
+});
 
 router.get('/:objectName', async (req: AuthRequest, res: Response) => {
   try {

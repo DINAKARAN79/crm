@@ -1,0 +1,10 @@
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "encryptedKey" TEXT;
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "keyIv" TEXT;
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "keyTag" TEXT;
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "encryptionKeyVersion" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "needsRegenerate" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE "api_keys" ADD COLUMN IF NOT EXISTS "revealedToCompanyAdminAt" TIMESTAMP(3);
+
+UPDATE "api_keys"
+SET "needsRegenerate" = TRUE
+WHERE "encryptedKey" IS NULL OR "keyIv" IS NULL OR "keyTag" IS NULL;

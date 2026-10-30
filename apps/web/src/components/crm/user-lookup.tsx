@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, UserRound, X } from "lucide-react";
 import { userApi } from "@/lib/api";
+import { LoggedInBadge } from "@/components/crm/logged-in-badge";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 export interface LookupUser {
@@ -12,6 +13,8 @@ export interface LookupUser {
   email: string;
   profile?: { name?: string | null } | null;
   isActive?: boolean;
+  isLoggedIn?: boolean;
+  lastSeenAt?: string | null;
 }
 
 interface UserLookupProps {
@@ -111,6 +114,7 @@ export function UserLookup({
             {selectedUser && <span className="inline-flex min-w-0 items-center gap-2 rounded-md bg-muted px-2 py-1 text-sm">
               <UserRound className="h-4 w-4 shrink-0 text-primary" />
               <span className="max-w-[180px] truncate">{selectedUser.firstName} {selectedUser.lastName}</span>
+              <LoggedInBadge online={Boolean(selectedUser.isLoggedIn)} lastSeenAt={selectedUser.lastSeenAt} />
               <button type="button" aria-label="Clear selected user" className="text-muted-foreground hover:text-foreground" onClick={() => { onChange(""); setQuery(""); }}><X className="h-4 w-4" /></button>
             </span>}
             <input
@@ -166,6 +170,6 @@ export function UserLookup({
 function UserLookupOption({ user, onSelect }: { user: LookupUser; onSelect: (user: LookupUser) => void }) {
   return <button type="button" role="option" aria-selected="false"   className="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left hover:bg-sky-50" onPointerDown={(event) => event.preventDefault()} onClick={() => onSelect(user)}>
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white"><UserRound className="h-6 w-6" /></span>
-      <span className="min-w-0"><span className="block truncate text-base font-semibold text-[#075d91]">{user.firstName} {user.lastName}</span><span className="block truncate text-sm text-[#1479a8]">{user.email}</span>{user.profile?.name && <span className="block truncate text-xs text-muted-foreground">{user.profile.name}</span>}</span>
+      <span className="min-w-0"><span className="flex items-center gap-2 truncate text-base font-semibold text-[#075d91]">{user.firstName} {user.lastName}<LoggedInBadge online={Boolean(user.isLoggedIn)} lastSeenAt={user.lastSeenAt} /></span><span className="block truncate text-sm text-[#1479a8]">{user.email}</span>{user.profile?.name && <span className="block truncate text-xs text-muted-foreground">{user.profile.name}</span>}</span>
   </button>;
 }

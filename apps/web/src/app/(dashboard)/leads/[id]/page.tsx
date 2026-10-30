@@ -31,9 +31,14 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
 import { leadApi, siteVisitApi, activityApi, callDetailsApi, followUpApi, objectManagerApi, projectApi, enquiryApi } from "@/lib/api";
+import { clickToCallToast, type ClickToCallField } from "@/lib/click-to-call";
+import { requestLeadCall } from "@/lib/telephony-client";
+import { maskTelephonyNumber, useTelephonyActive, useTelephonyNumberMasking } from "@/lib/telephony-client";
+import { ToastAction } from "@/components/ui/toast";
 import { notifyLeadListUpdated } from "@/lib/lead-list-events";
 import { LeadStatusPath } from "@/components/crm/lead-status-path";
 import { useRecordView } from "@/components/crm/list-view-control";
+import { useBreadcrumbLabel } from "@/components/layout/breadcrumb";
 import { formatPhoneWithCountryCode } from "@/lib/phone-display";
 import { sortFollowUpsByStatus } from "@/lib/follow-up-order";
 import { selectLeadPageLayout } from "@/lib/lead-profile-layout";
@@ -144,8 +149,10 @@ interface LeadData {
   title?: string;
   email?: string;
   phone?: string;
+  countryCode?: string | null;
   mobile?: string;
   secondaryPhone?: string | null;
+  secondaryCountryCode?: string | null;
   tertiaryPhone?: string | null;
   website?: string;
   company: string;
@@ -171,6 +178,7 @@ interface LeadData {
   owner?: { id: string; firstName: string; lastName: string; phone?: string | null };
   creator?: { id: string; firstName: string; lastName: string };
   project?: { id: string; name: string; allowedRadiusMeters?: number };
+  rrQueue?: { id: string; name: string } | null;
   projectId?: string | null;
   siteVisits?: any[];
   activities?: any[];
@@ -334,6 +342,8 @@ export default function LeadDetailPage() {
   useRecordView("LEAD", typeof params.id === "string" ? params.id : "");
   const router = useRouter();
   const { profile, isLoading: authLoading, hasPermission, hasEffectivePermission, isAdmin, isSuperAdmin, getLeadStatusLabel } = useAuth();
+  const telephonyActive = useTelephonyActive();
+  useTelephonyNumberMasking();
   const { toast } = useToast();
   const leadId = params.id as string;
   const canEditLead = hasPermission("Lead", "edit") || isAdmin || isSuperAdmin;
@@ -370,6 +380,7 @@ export default function LeadDetailPage() {
     ? "Choose a future date and time."
     : "";
   const [callDialogOpen, setCallDialogOpen] = React.useState(false);
+  const [callingField, setCallingField] = React.useState<ClickToCallField | null>(null);
   const [callType, setCallType] = React.useState<"INBOUND" | "OUTBOUND">("OUTBOUND");
   const [callStartAt, setCallStartAt] = React.useState("");
   const [callEndAt, setCallEndAt] = React.useState("");
@@ -616,6 +627,25 @@ export default function LeadDetailPage() {
       setCallDetailsLoading(false);
     }
   }, [leadId]);
+
+  React.useEffect(() => {
+    const refreshFromDialpad = (event: Event) => {
+      const detail = (event as CustomEvent<{ leadId?: string }>).detail;
+      if (detail?.leadId !== leadId) return;
+      void fetchCallDetails();
+      void leadApi.get(leadId).then((response) => {
+        if (response.data.success && response.data.data) {
+          setLead((current) => current ? { ...current, ...response.data.data } : response.data.data);
+        }
+      }).catch((error: unknown) => toast({
+        title: "Unable to refresh lead status",
+        description: error instanceof Error ? error.message : "Refresh the lead to see the latest call status.",
+        variant: "destructive",
+      }));
+    };
+    window.addEventListener("crm:call-details-updated", refreshFromDialpad);
+    return () => window.removeEventListener("crm:call-details-updated", refreshFromDialpad);
+  }, [fetchCallDetails, leadId, toast]);
 
   const customerCallNumber = lead?.phone || lead?.mobile || "";
   const executiveCallNumber = lead?.owner?.phone?.trim() || "";
@@ -1623,10 +1653,36 @@ export default function LeadDetailPage() {
   const workflowActions = getWorkflowActions();
   const scheduleSiteVisitAction = workflowActions.find((action) => action.label === "Schedule Site Visit");
 
-  const formatAuditValue = (value: any): string => {
+  const leadRecordName = [lead?.firstName, lead?.lastName].filter(Boolean).join(" ").trim() || lead?.leadNumber || "";
+  useBreadcrumbLabel(typeof params.id === "string" ? params.id : undefined, leadRecordName || undefined);
+
+  const recordNames = React.useMemo(() => {
+    const names = new globalThis.Map<string, string>();
+    const add = (id?: string | null, label?: string | null) => {
+      if (id && label?.trim()) names.set(id, label.trim());
+    };
+    add(lead?.id, lead?.leadNumber || leadRecordName);
+    add(lead?.project?.id, lead?.project?.name);
+    add(lead?.owner?.id, [lead?.owner?.firstName, lead?.owner?.lastName].filter(Boolean).join(" "));
+    add(lead?.creator?.id, [lead?.creator?.firstName, lead?.creator?.lastName].filter(Boolean).join(" "));
+    add(lead?.rrQueue?.id, lead?.rrQueue?.name);
+    for (const visit of lead?.siteVisits || []) add(visit.id, visit.siteVisitNumber);
+    for (const followUp of lead?.followUps || []) add(followUp.id, followUp.followUpNumber);
+    return names;
+  }, [lead, leadRecordName]);
+
+  const formatAuditValue = (value: any): string | null => {
     if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "string") {
+      const named = recordNames.get(value);
+      if (named) return named;
+      if (/^c[a-z0-9]{20,}$/i.test(value)) return null;
+      return value;
+    }
     if (value instanceof Date) return formatDateTime(value);
     if (typeof value === "object") {
+      const person = [value.firstName, value.lastName].filter(Boolean).join(" ").trim();
+      if (person || value.name || value.label) return person || value.name || value.label;
       try {
         return JSON.stringify(value);
       } catch {
@@ -1678,6 +1734,7 @@ export default function LeadDetailPage() {
       for (const field of Object.keys(newVals)) {
         if (field === "reason" || field === "note") continue;
         if (hasNameSibling(field)) continue;
+        if (formatAuditValue(newVals[field]) === null) continue;
         changes.push({ field, oldValue: null, newValue: newVals[field] });
       }
       return changes;
@@ -1688,6 +1745,7 @@ export default function LeadDetailPage() {
       if (hasNameSibling(field)) continue;
       const oldV = oldVals[field];
       const newV = newVals[field];
+      if (formatAuditValue(oldV) === null && formatAuditValue(newV) === null) continue;
       if (JSON.stringify(oldV ?? null) !== JSON.stringify(newV ?? null)) {
         changes.push({ field, oldValue: field in oldVals ? oldV : undefined, newValue: newV });
       }
@@ -1702,11 +1760,16 @@ export default function LeadDetailPage() {
 
   const lastModifiedBy = lead?.lastModified?.by;
   const lastModifiedAt = lead?.lastModified?.at || lead?.updatedAt;
+  const ownerDisplayName = lead?.owner
+    ? `${lead.owner.firstName || ""} ${lead.owner.lastName || ""}`.trim()
+    : "";
   const systemInformation = {
     record_number: lead?.leadNumber,
     owner: lead?.owner
-      ? { id: lead.owner.id, name: `${lead.owner.firstName} ${lead.owner.lastName}`.trim() }
+      ? { id: lead.owner.id, name: ownerDisplayName }
       : null,
+    ...(ownerDisplayName ? { ownerName: ownerDisplayName } : {}),
+    ...(lead?.rrQueue?.name ? { rrQueueName: lead.rrQueue.name } : {}),
     created_by: lead?.creator
       ? { id: lead.creator.id, name: `${lead.creator.firstName} ${lead.creator.lastName}`.trim() }
       : null,
@@ -1745,6 +1808,38 @@ export default function LeadDetailPage() {
   }
 
   const leadDisplayName = `${lead.firstName ? lead.firstName + " " : ""}${lead.lastName}`;
+  const canCall = hasEffectivePermission("TELEPHONY_CALL") && telephonyActive;
+  const placeCall = async (phoneField: ClickToCallField) => {
+    if (callingField) return;
+    setCallingField(phoneField);
+    const result = await requestLeadCall({
+      leadId: lead.id,
+      phoneField,
+      leadName: leadDisplayName || lead.company || lead.leadNumber || "Lead",
+    });
+    const notice = clickToCallToast(result, Boolean(isAdmin || isSuperAdmin));
+    toast({
+      title: notice.title,
+      description: notice.description,
+      variant: notice.variant,
+      action: notice.showSettingsLink ? (
+        <ToastAction altText="Open telephony settings" onClick={() => router.push("/setup/integrations/telephony")}>
+          Open telephony settings
+        </ToastAction>
+      ) : undefined,
+    });
+    const updatedLeadStatus = result.leadStatus;
+    if (updatedLeadStatus) {
+      setLead((current) => current ? {
+        ...current,
+        status: updatedLeadStatus as typeof current.status,
+        statusLabel: result.statusChanged ? getLeadStatusLabel(updatedLeadStatus) : current.statusLabel,
+      } : current);
+    }
+    if (result.callDetailId) void fetchCallDetails();
+    if (result.statusChanged) notifyLeadListUpdated();
+    setCallingField(null);
+  };
   const leadProjectOptions = lead.project && !projects.some((project) => project.id === lead.project?.id)
     ? [...projects, { ...lead.project, isActive: false }]
     : projects;
@@ -1802,11 +1897,33 @@ export default function LeadDetailPage() {
               <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 xl:grid-cols-4">
                 <div className="min-w-0">
                   <p className="text-[10px] leading-4 text-slate-500">Phone</p>
-                  <p className="truncate text-[12px] font-medium leading-4 text-slate-800">{lead.phone || lead.mobile || "—"}</p>
+                  {canCall && (lead.phone || lead.mobile) ? (
+                    <button type="button" className="truncate text-left text-[12px] font-medium leading-4 text-[#1479a8] hover:underline disabled:opacity-60" disabled={Boolean(callingField)} onClick={() => void placeCall(lead.phone ? "phone" : "mobile")}>
+                      {callingField === (lead.phone ? "phone" : "mobile") ? "Calling..." : maskTelephonyNumber(lead.phone || lead.mobile, lead.countryCode)}
+                    </button>
+                  ) : (
+                    <p className="truncate text-[12px] font-medium leading-4 text-slate-800">{maskTelephonyNumber(lead.phone || lead.mobile, lead.countryCode) || "—"}</p>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] leading-4 text-slate-500">Mobile</p>
-                  <p className="truncate text-[12px] font-medium leading-4 text-slate-800">{lead.mobile || "—"}</p>
+                  {canCall && lead.mobile ? (
+                    <button type="button" className="truncate text-left text-[12px] font-medium leading-4 text-[#1479a8] hover:underline disabled:opacity-60" disabled={Boolean(callingField)} onClick={() => void placeCall("mobile")}>
+                      {callingField === "mobile" ? "Calling..." : maskTelephonyNumber(lead.mobile, lead.countryCode)}
+                    </button>
+                  ) : (
+                    <p className="truncate text-[12px] font-medium leading-4 text-slate-800">{maskTelephonyNumber(lead.mobile, lead.countryCode) || "—"}</p>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] leading-4 text-slate-500">Secondary Phone</p>
+                  {canCall && lead.secondaryPhone ? (
+                    <button type="button" className="truncate text-left text-[12px] font-medium leading-4 text-[#1479a8] hover:underline disabled:opacity-60" disabled={Boolean(callingField)} onClick={() => void placeCall("secondaryPhone")}>
+                      {callingField === "secondaryPhone" ? "Calling..." : maskTelephonyNumber(lead.secondaryPhone, lead.secondaryCountryCode || lead.countryCode)}
+                    </button>
+                  ) : (
+                    <p className="truncate text-[12px] font-medium leading-4 text-slate-800">{maskTelephonyNumber(lead.secondaryPhone, lead.secondaryCountryCode || lead.countryCode) || "—"}</p>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] leading-4 text-slate-500">Owner</p>
@@ -1847,16 +1964,27 @@ export default function LeadDetailPage() {
                 </>
               ) : (
                 <>
-                  {(hasPermission("Activity", "create") || hasEffectivePermission("ACTIVITY_CREATE") || isAdmin || isSuperAdmin) && (
+                  {canCall && (
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 shrink-0 p-0 hover:bg-transparent"
-                      onClick={openCallDialog}
-                      aria-label="Log Call"
-                      title="Log Call"
+                      onClick={() => void placeCall("phone")}
+                      disabled={Boolean(callingField)}
+                      aria-label="Call"
+                      title={callingField ? "Calling..." : "Call"}
                     >
                       <img src="/phone-call.svg" alt="" className="h-8 w-8" />
+                    </Button>
+                  )}
+                  {(hasPermission("Activity", "create") || hasEffectivePermission("ACTIVITY_CREATE") || isAdmin || isSuperAdmin) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-[#5b9fbe] px-2.5 text-[10px] font-medium text-[#397b9b] hover:bg-sky-50 hover:text-blue-800"
+                      onClick={openCallDialog}
+                    >
+                      Log call
                     </Button>
                   )}
                   {scheduleSiteVisitAction && (
@@ -2089,6 +2217,8 @@ export default function LeadDetailPage() {
                   onEditOwner={canChangeOwner ? openOwnerDialog : undefined}
                   canEditLayout={canEditLeadLayout}
                   onSaveLayout={saveLeadLayout}
+                  onCallPhone={canCall ? (fieldName) => { void placeCall(fieldName); } : undefined}
+                  callingPhoneField={callingField}
                 />
               )}
 
@@ -2238,7 +2368,7 @@ export default function LeadDetailPage() {
                             className="font-medium text-primary underline decoration-dotted underline-offset-4 hover:decoration-solid"
                             onClick={() => openFollowUpDetail(fu.id)}
                           >
-                            {fu.followUpNumber || fu.id}
+                            {fu.followUpNumber || "—"}
                           </button>
                         </TableCell>
                         <TableCell className="max-w-[220px]">
@@ -2614,13 +2744,13 @@ export default function LeadDetailPage() {
                                 {change.oldValue !== undefined ? (
                                   <>
                                     <span className="text-muted-foreground">
-                                      {formatAuditValue(change.oldValue)}
+                                      {formatAuditValue(change.oldValue) || "—"}
                                     </span>
                                     <span aria-hidden="true">→</span>
-                                    <span>{formatAuditValue(change.newValue)}</span>
+                                    <span>{formatAuditValue(change.newValue) || "—"}</span>
                                   </>
                                 ) : (
-                                  <span>{formatAuditValue(change.newValue)}</span>
+                                  <span>{formatAuditValue(change.newValue) || "—"}</span>
                                 )}
                               </div>
                             ))}
@@ -2853,8 +2983,8 @@ export default function LeadDetailPage() {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
                   <p>Lead Number: <span className="font-medium text-foreground">{lead.leadNumber}</span></p>
                   <p>Name: <span className="font-medium text-foreground">{`${lead.firstName || ""} ${lead.lastName || ""}`.trim()}</span></p>
-                  <p>Phone: <span className="font-medium text-foreground">{lead.phone || lead.mobile || "—"}</span></p>
-                  <p>Secondary Phone: <span className="font-medium text-foreground">{lead.secondaryPhone || lead.mobile || "—"}</span></p>
+                  <p>Phone: <span className="font-medium text-foreground">{maskTelephonyNumber(lead.phone || lead.mobile, lead.countryCode) || "—"}</span></p>
+                  <p>Secondary Phone: <span className="font-medium text-foreground">{maskTelephonyNumber(lead.secondaryPhone || lead.mobile, lead.secondaryCountryCode || lead.countryCode) || "—"}</span></p>
                   <p>Tertiary Phone: <span className="font-medium text-foreground">{lead.tertiaryPhone || "—"}</span></p>
                   <p>Company: <span className="font-medium text-foreground">{lead.company || "—"}</span></p>
                   <p>Email: <span className="font-medium text-foreground">{lead.email || "—"}</span></p>
@@ -3563,7 +3693,7 @@ export default function LeadDetailPage() {
                 </div>
                 <div className="grid grid-cols-[minmax(110px,0.7fr)_minmax(0,1.3fr)] items-center gap-3">
                   <Label>Lead ID</Label>
-                  <Input value={lead?.leadNumber || lead?.id || ""} disabled />
+                  <Input value={lead?.leadNumber || ""} disabled />
                 </div>
                 <div className="grid grid-cols-[minmax(110px,0.7fr)_minmax(0,1.3fr)] items-center gap-3">
                   <Label>Source <span className="text-destructive">*</span></Label>

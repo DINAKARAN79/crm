@@ -2,7 +2,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { readHomeProfile, rememberHomeProfile, userHomePath } from "@/lib/user-home-path";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,7 +21,6 @@ import { profileApi } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,10 +28,6 @@ import {
 interface AdminHomeProfile {
   id: string;
   name: string;
-}
-
-function profileSlug(name: string) {
-  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function responseItems(response: any) {
@@ -45,8 +41,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
-  const { user, profile, roles = [], tenant, logout, isAdmin, isSuperAdmin } = useAuth();
-  const searchParams = useSearchParams();
+  const { user, tenant, logout, isAdmin, isSuperAdmin } = useAuth();
   const isAuthenticated = Boolean(user);
   const showHomeSelector = isAuthenticated && isAdmin && !isSuperAdmin;
   const [adminHomeOpen, setAdminHomeOpen] = React.useState(false);
@@ -87,25 +82,18 @@ export function Header({ onMenuClick }: HeaderProps) {
     refreshAdminDropdownData();
   }, [refreshAdminDropdownData]);
 
-  const userName = user
-    ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User"
-    : "User";
-  const profileName = profile?.name || (isSuperAdmin ? "Superadmin" : "Not assigned");
-
   const handleLogout = async () => {
     await logout();
   };
 
-  const selectedProfileId = searchParams.get("profileId");
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+  const selectedProfileId = readHomeProfile()?.id;
   const selectedProfile = adminProfiles.find((item) => item.id === selectedProfileId);
 
   const handleProfileNavigation = (selected: AdminHomeProfile) => {
     setAdminHomeOpen(false);
-    const profileParams = new URLSearchParams({
-      profileId: selected.id,
-      profileLabel: selected.name,
-    });
-    router.push(`/profiles/${profileSlug(selected.name)}?${profileParams}`);
+    rememberHomeProfile(selected);
+    router.push(userHomePath(tenant, user?.id));
   };
 
   const handleAdminHomeNavigation = () => {
@@ -169,8 +157,8 @@ export function Header({ onMenuClick }: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <span className="max-w-[7rem] truncate px-2 text-sm sm:max-w-[10rem]">
-            {profileName}
+          <span className="max-w-[7rem] truncate px-2 text-sm sm:max-w-[14rem]" title={displayName || undefined}>
+            {displayName}
           </span>
           <DropdownMenu modal={false} open={userMenuOpen} onOpenChange={setUserMenuOpen}>
             <DropdownMenuTrigger asChild>
@@ -191,10 +179,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                 }}
                 className="h-auto items-start py-2"
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-[13px] font-medium">{userName}</span>
-                  <span className="truncate text-[11px] text-muted-foreground">{user?.email || ""}</span>
-                </span>
+                <span className="truncate text-[13px] font-medium">{displayName || "User"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push("/profile/sessions")}>
+                Sessions
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -207,53 +195,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       <Dialog open={userDetailsOpen} onOpenChange={setUserDetailsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{userName}</DialogTitle>
-            <DialogDescription>Logged-in user profile details</DialogDescription>
+            <DialogTitle>Name</DialogTitle>
           </DialogHeader>
-          <dl className="grid gap-3 text-sm">
-              {user?.id && (
-                <div>
-                  <dt className="text-muted-foreground">User ID</dt>
-                  <dd className="break-all font-medium">{user.id}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-muted-foreground">Email</dt>
-                <dd className="font-medium">{user?.email || "Not provided"}</dd>
-            </div>
-            {user?.phone && (
-              <div>
-                <dt className="text-muted-foreground">Phone</dt>
-                <dd className="font-medium">{user.phone}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-muted-foreground">Profile</dt>
-              <dd className="font-medium">{profileName}</dd>
-            </div>
-            {profile?.description && (
-              <div>
-                <dt className="text-muted-foreground">Profile description</dt>
-                <dd className="font-medium">{profile.description}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-muted-foreground">Account type</dt>
-              <dd className="font-medium">{isSuperAdmin ? "Super Admin" : "Company user"}</dd>
-            </div>
-            {roles.length > 0 && (
-              <div>
-                <dt className="text-muted-foreground">Roles</dt>
-                <dd className="font-medium">{roles.join(", ")}</dd>
-              </div>
-            )}
-            {tenant?.name && (
-              <div>
-                <dt className="text-muted-foreground">Company</dt>
-                <dd className="font-medium">{tenant.name}</dd>
-              </div>
-            )}
-          </dl>
+          <p className="break-all text-sm font-medium">{displayName || "Not available"}</p>
         </DialogContent>
       </Dialog>
     </>

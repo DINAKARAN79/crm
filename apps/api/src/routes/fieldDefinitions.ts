@@ -3,9 +3,15 @@ import { prisma } from '@dct-crm/db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { getAllFieldDefinitions, invalidateCache } from '../services/metadata';
+import { denyUnlessUserObjectAdmin, isUserObjectName } from '../services/userObjectAccess';
+import { isHiddenUserField } from '../services/userObject';
 
 const router = Router();
 router.use(authenticate);
+router.use('/:objectName', (req: AuthRequest, res: Response, next) => {
+  if (denyUnlessUserObjectAdmin(req, res)) return;
+  next();
+});
 
 const VALID_FIELD_TYPES = [
   'text', 'longText', 'richText', 'number', 'integer', 'decimal',
@@ -92,6 +98,9 @@ router.post('/:objectName', requirePermission('PROFILE_PERMISSION_MANAGE'), asyn
     const nameCheck = validateFieldName(fieldName);
     if (!nameCheck.valid) {
       return res.status(400).json({ success: false, error: nameCheck.error });
+    }
+    if (isUserObjectName(object.name) && isHiddenUserField(fieldName)) {
+      return res.status(400).json({ success: false, error: 'This field cannot be added to the User object.' });
     }
 
     if (!VALID_FIELD_TYPES.includes(fieldType)) {
@@ -333,8 +342,8 @@ router.put('/:objectName/:fieldId', requirePermission('PROFILE_PERMISSION_MANAGE
         action: 'FIELD_UPDATED',
         objectType: 'FieldDefinition',
         objectId: field.id,
-        oldValues: { label: existingField.label, fieldType: existingField.fieldType },
-        newValues: { label: field.label, fieldType: field.fieldType },
+        oldValues: { label: existingField.label, fieldType: existingField.fieldType, required: existingField.required },
+        newValues: { label: field.label, fieldType: field.fieldType, required: field.required },
       },
     });
 

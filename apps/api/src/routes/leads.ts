@@ -428,6 +428,31 @@ router.get('/statuses', authorize('Lead', 'read'), async (req: AuthRequest, res:
   }
 });
 
+router.get('/sales-users', authorize('Lead', 'create'), async (req: AuthRequest, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        tenantId: req.tenantId!,
+        isActive: true,
+        profile: { is: { name: { startsWith: 'Sales', mode: 'insensitive' } } },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        profile: { select: { name: true } },
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      take: 200,
+    });
+    res.json({ success: true, data: users });
+  } catch (error) {
+    console.error('Get lead sales users error:', error);
+    res.status(500).json({ success: false, error: 'Failed to load sales users' });
+  }
+});
+
 router.get('/:id/enquiries', authorize('Enquiry', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.findFirst({
@@ -593,6 +618,7 @@ router.get('/:id', authorize('Lead', 'read'), async (req: AuthRequest, res: Resp
         owner: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
         creator: { select: { id: true, firstName: true, lastName: true } },
         project: { select: { id: true, name: true } },
+        rrQueue: { select: { id: true, name: true } },
         siteVisits: {
           include: {
             assignee: { select: { id: true, firstName: true, lastName: true } },

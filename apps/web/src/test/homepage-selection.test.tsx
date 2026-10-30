@@ -20,10 +20,12 @@ const mocks = vi.hoisted(() => {
     hasPermission: vi.fn().mockReturnValue(true),
     hasEffectivePermission: vi.fn().mockReturnValue(true),
     profile: { id: '', name: 'Admin' },
-    roles: ['Admin'],
+    roles: ['Admin'] as string[],
     isAdmin: true,
     isSuperAdmin: false,
     isLoading: false,
+    user: { id: '', firstName: 'Admin', lastName: 'User' },
+    tenant: null as { name: string; slug?: string } | null,
   };
   const router = { push: vi.fn(), replace: vi.fn() };
 
@@ -87,7 +89,8 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({
-    user: { firstName: 'Admin', lastName: 'User' },
+    user: mocks.auth.user,
+    tenant: mocks.auth.tenant,
     profile: mocks.auth.profile,
     roles: mocks.auth.roles,
     isAdmin: mocks.auth.isAdmin,
@@ -198,6 +201,8 @@ describe('HomePage homepage selection', () => {
     mocks.auth.isAdmin = true;
     mocks.auth.isSuperAdmin = false;
     mocks.auth.isLoading = false;
+    mocks.auth.user = { id: '', firstName: 'Admin', lastName: 'User' };
+    mocks.auth.tenant = null;
     mocks.analyticsApi.getLeads.mockResolvedValue({ data: { data: { total: 12 } } });
     mocks.taskApi.list.mockResolvedValue({ data: { data: [] } });
     mocks.activityApi.list.mockResolvedValue({ data: { data: [] } });
@@ -272,6 +277,8 @@ describe('HomePage homepage selection', () => {
   it('opens the signed-in user profile home after visiting Home', async () => {
     mocks.searchParamState.value = '';
     mocks.auth.profile = { id: 'profile-sales', name: 'Sales Manager' };
+    mocks.auth.user = { id: 'user-1', firstName: 'Admin', lastName: 'User' };
+    mocks.auth.tenant = { name: 'DCT Real Estate', slug: 'dct-real-estate' };
     mocks.auth.isAdmin = false;
     mocks.auth.roles = ['Sales'];
 
@@ -281,7 +288,7 @@ describe('HomePage homepage selection', () => {
     });
 
     expect(mocks.router.replace).toHaveBeenCalledWith(
-      '/profiles/sales-manager?profileId=profile-sales&profileLabel=Sales+Manager',
+      '/DCT%20Real%20Estate/user-1',
     );
     expect(getContainer().textContent).toBe('');
   });
@@ -314,7 +321,7 @@ describe('HomePage homepage selection', () => {
 
     expect(mocks.homepageApi.assigned).toHaveBeenCalled();
     expect(mocks.homepageApi.list).not.toHaveBeenCalled();
-    expect(getContainer().textContent).toContain('Welcome Sales Manager');
+    expect(getContainer().textContent).toContain('Welcome Admin User');
     const leadsWidget = getContainer().querySelector<HTMLElement>(
       '[data-testid="profile-homepage-layout"] [data-widget-id="total-leads"]',
     );
@@ -351,7 +358,7 @@ describe('HomePage homepage selection', () => {
     });
 
     expect(mocks.homepageApi.assigned).toHaveBeenCalled();
-    expect(getContainer().textContent).toContain('Welcome test3');
+    expect(getContainer().textContent).toContain('Welcome Admin User');
     expect(getContainer().textContent).toContain('Tasks by Users');
     expect(getContainer().textContent).toContain('Report report-1');
     expect(getContainer().querySelector<HTMLElement>(
@@ -384,7 +391,7 @@ describe('HomePage homepage selection', () => {
     });
 
     expect(getContainer().querySelector('[data-testid="profile-homepage-layout"]')).toBeNull();
-    expect(getContainer().textContent).toContain('Welcome test3');
+    expect(getContainer().textContent).toContain('Welcome Admin User');
     expect(getContainer().textContent).toContain('Total Leads');
     expect(getContainer().textContent).toContain('Upcoming Follow-ups');
     expect(getContainer().textContent).toContain('Recent Activity');
@@ -542,7 +549,7 @@ describe('HomePage homepage selection', () => {
       await Promise.resolve();
     });
 
-    expect(getContainer().textContent).toContain('Welcome New Profile');
+    expect(getContainer().textContent).toContain('Welcome Admin User');
     expect(Array.from(getContainer().querySelectorAll('a'))
       .find((link) => link.textContent?.trim() === 'Edit')
       ?.getAttribute('href'))
@@ -878,6 +885,8 @@ describe('HomePage homepage selection', () => {
   it('keeps the editor visible while saving and navigates to the selected profile home', async () => {
     mocks.routeState.profileName = 'create';
     mocks.searchParamState.value = 'profile=Sales%20Manager&profileId=profile-sales';
+    mocks.auth.user = { id: 'user-1', firstName: 'Admin', lastName: 'User' };
+    mocks.auth.tenant = { name: 'DCT Real Estate', slug: 'dct-real-estate' };
     mocks.profileApi.list.mockResolvedValue({
       data: { data: [{ id: 'profile-sales', name: 'Sales Manager' }] },
     });
@@ -920,7 +929,7 @@ describe('HomePage homepage selection', () => {
     });
 
     expect(mocks.router.push).toHaveBeenCalledWith(
-      '/profiles/sales-manager?profileId=profile-sales&profileLabel=Sales+Manager',
+      '/DCT%20Real%20Estate/user-1',
     );
   });
 

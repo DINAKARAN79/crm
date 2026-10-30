@@ -13,6 +13,7 @@ import {
   setNotifySetting,
   startImpersonation,
 } from '../services/impersonation';
+import { endSessionBySecret, newSessionSecret, openUserSession } from '../services/userPresence';
 
 const router = Router();
 const companyRouter = Router({ mergeParams: true });
@@ -65,6 +66,14 @@ companyRouter.post('/impersonate', async (req: AuthRequest, res: Response) => {
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
+    const sessionSecret = newSessionSecret();
+    await openUserSession({
+      userId: started.actingUser.id,
+      tenantId: started.actingUser.tenantId,
+      sessionSecret,
+      req,
+      isImpersonation: true,
+    });
     const token = generateToken({
       id: started.actingUser.id,
       email: started.actingUser.email,
@@ -72,6 +81,7 @@ companyRouter.post('/impersonate', async (req: AuthRequest, res: Response) => {
       isSuperAdmin: false,
       impersonatedBy: req.user!.id,
       loginAt: req.sessionLoginAt,
+      sessionId: sessionSecret,
       isImpersonation: true,
       impersonationId: started.session.id,
       viewOnly: started.session.viewOnly,
@@ -124,6 +134,7 @@ router.post('/exit', authenticate, async (req: AuthRequest, res: Response) => {
     if (!req.impersonation) {
       return res.status(400).json({ success: false, error: 'You are not viewing a company as its admin.' });
     }
+    if (req.sessionSecret) await endSessionBySecret(req.sessionSecret, 'LOGOUT');
     const restored = await exitImpersonation(req.impersonation.id);
     const token = generateToken({
       id: restored.superadmin.id,

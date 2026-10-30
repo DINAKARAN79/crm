@@ -66,4 +66,32 @@ describe("LayoutDrivenForm inline lead editing", () => {
     expect(onChange).toHaveBeenCalledWith("firstName", "Grace");
     expect(onChange).not.toHaveBeenCalledWith("status", "NEW");
   });
+
+  it("shows names on name fields and ids on id fields", () => {
+    render(
+      <LayoutDrivenForm
+        objectName="Lead"
+        mode="detail"
+        data={{
+          ownerId: "user-1",
+          ownerName: "Svc Test3",
+          owner: { id: "user-1", name: "Svc Test3" },
+          rrQueueId: "queue-1",
+          rrQueueName: "SVC Queue",
+        }}
+        layout={{ sections: [{ name: "Lead Details", fields: ["owner", "ownerId", "rrQueueName", "rrQueueId"] }] }}
+        fields={[
+          { name: "owner", label: "Owner", fieldType: "lookup", required: false, editable: false, visible: true },
+          { name: "ownerId", label: "Owner ID", fieldType: "text", required: false, editable: false, visible: true },
+          { name: "rrQueueName", label: "Round Robin Queue", fieldType: "text", required: false, editable: false, visible: true },
+          { name: "rrQueueId", label: "Round Robin Queue ID", fieldType: "text", required: false, editable: false, visible: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Svc Test3")).toBeInTheDocument();
+    expect(screen.getByText("user-1")).toBeInTheDocument();
+    expect(screen.getByText("SVC Queue")).toBeInTheDocument();
+    expect(screen.getByText("queue-1")).toBeInTheDocument();
+  });
 });

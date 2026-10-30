@@ -1,34 +1,38 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Download, Eye, EyeOff, KeyRound, Loader2, RotateCw, ShieldAlert } from "lucide-react";
 import { companyApi } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-
-const API_SCOPES = [
-  "leads:read",
-  "leads:write",
-  "call-details:write",
-  "follow-ups:read",
-  "follow-ups:write",
-  "site-visits:read",
-  "site-visits:write",
-  "webhooks:manage",
-] as const;
 
 interface CompanyApiKeyRecord {
   id: string;
   name: string;
   keyPrefix: string;
   scopes: string[];
-  rateLimitPerMinute: number;
-  ipAllowlist: string[];
+  status: string;
   lastUsedAt?: string | null;
-  expiresAt?: string | null;
   revokedAt?: string | null;
   createdAt: string;
+  needsRegenerate?: boolean;
+  revealedToCompanyAdminAt?: string | null;
+}
+
+interface KeyPayload {
+  company?: { id: string; name: string; companyCode: string };
+  apiKey: CompanyApiKeyRecord | null;
+  canRevealOnce?: boolean;
 }
 
 function formatWhen(value?: string | null) {
@@ -37,216 +41,364 @@ function formatWhen(value?: string | null) {
   return Number.isNaN(date.getTime()) ? "Never" : date.toLocaleString();
 }
 
-export function CompanyApiKeys({ tenantId, onSecret }: { tenantId: string; onSecret?: (secret: string) => void }) {
+export function CompanyApiKeys({
+  tenantId,
+  companyName,
+  companyCode,
+  onSecret,
+}: {
+  tenantId: string;
+  companyName?: string;
+  companyCode?: string;
+  onSecret?: (secret: string) => void;
+}) {
+  const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
-  const [keys, setKeys] = React.useState<CompanyApiKeyRecord[]>([]);
+  const [record, setRecord] = React.useState<CompanyApiKeyRecord | null>(null);
+  const [company, setCompany] = React.useState<KeyPayload["company"]>();
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [scopes, setScopes] = React.useState<string[]>(["leads:read"]);
-  const [rateLimit, setRateLimit] = React.useState("120");
-  const [allowlist, setAllowlist] = React.useState("");
-  const [expiresAt, setExpiresAt] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState("");
   const [revealedKey, setRevealedKey] = React.useState("");
+  const [allowDelete, setAllowDelete] = React.useState(false);
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
+  const [password, setPassword] = React.useState("");
+  const [passwordError, setPasswordError] = React.useState("");
+  const [revealPurpose, setRevealPurpose] = React.useState<"show" | "copy">("show");
+  const revealTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRevealKeyId = React.useRef<string | null>(null);
+  const activeSuperAdmin = Boolean(isSuperAdmin);
 
-  const loadKeys = React.useCallback(async () => {
+  const setKeyVisible = React.useCallback((value: string) => {
+    setRevealedKey(value);
+    onSecret?.(value);
+    if (revealTimer.current) clearTimeout(revealTimer.current);
+    if (value && activeSuperAdmin) {
+      revealTimer.current = setTimeout(() => {
+        setRevealedKey("");
+        onSecret?.("");
+      }, 30_000);
+    }
+  }, [activeSuperAdmin, onSecret]);
+
+  const revealOnce = React.useCallback(async () => {
+    try {
+      const response = await companyApi.apiKey.setupRevealOnce(tenantId);
+      if (!response.data?.success || !response.data.apiKey) {
+        throw new Error(response.data?.error || "The one-time key could not be loaded.");
+      }
+      const data = response.data.data as CompanyApiKeyRecord;
+      setRecord(data);
+      setKeyVisible(response.data.apiKey);
+    } catch (revealError: any) {
+      const status = revealError?.response?.status;
+      if (status !== 410) {
+        setError(revealError?.response?.data?.error || revealError?.message || "The one-time key could not be loaded.");
+      }
+    }
+  }, [setKeyVisible, tenantId]);
+
+  const loadKey = React.useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await companyApi.apiKeys.list(tenantId);
-      if (!response.data?.success) throw new Error(response.data?.error || "Failed to load API keys");
-      setKeys(response.data.data || []);
+      const response = activeSuperAdmin
+        ? await companyApi.apiKey.get(tenantId)
+        : await companyApi.apiKey.setupGet(tenantId);
+      if (!response.data?.success) throw new Error(response.data?.error || "Failed to load the API key.");
+      const payload = response.data.data as KeyPayload;
+      setCompany(payload.company);
+      setRecord(payload.apiKey);
+      setAllowDelete(Boolean(payload.apiKey?.scopes?.some((scope) => scope.endsWith(":delete"))));
+      if (!activeSuperAdmin && payload.canRevealOnce && payload.apiKey?.id !== autoRevealKeyId.current) {
+        autoRevealKeyId.current = payload.apiKey?.id || null;
+        void revealOnce();
+      }
     } catch (loadError: any) {
-      setKeys([]);
-      setError(loadError?.response?.data?.error || loadError?.message || "Failed to load API keys");
+      setRecord(null);
+      setError(loadError?.response?.data?.error || loadError?.message || "Failed to load the API key.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [activeSuperAdmin, revealOnce, tenantId]);
 
   React.useEffect(() => {
-    setRevealedKey("");
-    void loadKeys();
-  }, [loadKeys]);
+    setKeyVisible("");
+    autoRevealKeyId.current = null;
+    void loadKey();
+    return () => {
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+      onSecret?.("");
+    };
+  }, [loadKey, onSecret, setKeyVisible, tenantId]);
 
-  const copyText = async (text: string) => {
+  const downloadKey = (value: string) => {
+    const blob = new Blob([`Save this key now. It will not be shown again.\n\n${value}\n`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dct-api-key.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = async (value: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(value);
       toast({ title: "Copied to clipboard" });
     } catch {
       toast({ title: "Copy failed", description: "Clipboard access is unavailable.", variant: "destructive" });
     }
   };
 
-  const createKey = async (event: React.FormEvent) => {
+  const openPasswordPrompt = (purpose: "show" | "copy") => {
+    setRevealPurpose(purpose);
+    setPassword("");
+    setPasswordError("");
+    setPasswordOpen(true);
+  };
+
+  const revealForSuperAdmin = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
+    setPasswordError("");
     try {
-      const response = await companyApi.apiKeys.create(tenantId, {
-        name: name.trim(),
-        scopes,
-        rateLimitPerMinute: Number(rateLimit) || 120,
-        ipAllowlist: allowlist.split(",").map((item) => item.trim()).filter(Boolean),
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-      });
+      const response = await companyApi.apiKey.reveal(tenantId, password, revealPurpose);
       if (!response.data?.success || !response.data.apiKey) {
-        throw new Error(response.data?.error || "Failed to create API key");
+        throw new Error(response.data?.error || "Failed to reveal the API key.");
       }
-      setRevealedKey(response.data.apiKey);
-      onSecret?.(response.data.apiKey);
-      setName("");
-      toast({ title: "API key created", description: "Copy it now. It will not be shown again." });
-      await loadKeys();
-    } catch (createError: any) {
-      toast({
-        title: "Could not create API key",
-        description: createError?.response?.data?.error || createError?.message || "Please try again.",
-        variant: "destructive",
-      });
+      setKeyVisible(response.data.apiKey);
+      if (revealPurpose === "copy") await copyToClipboard(response.data.apiKey);
+      setPasswordOpen(false);
+      setPassword("");
+    } catch (revealError: any) {
+      setPasswordError(revealError?.response?.data?.error || revealError?.message || "Failed to reveal the API key.");
     } finally {
       setSaving(false);
     }
   };
 
-  const revokeKey = async (key: CompanyApiKeyRecord) => {
+  const generateKey = async () => {
+    if (!window.confirm("Generating a replacement immediately invalidates the existing key. Update every integration that uses it. Continue?")) return;
+    setSaving(true);
     try {
-      const response = await companyApi.apiKeys.revoke(tenantId, key.id);
-      if (!response.data?.success) throw new Error(response.data?.error || "Failed to revoke API key");
-      toast({ title: "API key revoked" });
-      await loadKeys();
-    } catch (revokeError: any) {
-      toast({
-        title: "Could not revoke API key",
-        description: revokeError?.response?.data?.error || revokeError?.message || "Please try again.",
-        variant: "destructive",
-      });
+      const response = await companyApi.apiKey.generate(tenantId);
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Failed to generate an API key.");
+      }
+      setRecord(response.data.data as CompanyApiKeyRecord);
+      setKeyVisible("");
+      toast({ title: "API key generated", description: "The previous key was replaced. Use Show and re-enter your password to reveal it." });
+    } catch (generateError: any) {
+      toast({ title: "Could not generate the API key", description: generateError?.response?.data?.error || generateError?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const rotateKey = async (key: CompanyApiKeyRecord) => {
+  const rotateKey = async () => {
+    if (!window.confirm("Rotating the API key immediately invalidates the current key. Continue?")) return;
+    setSaving(true);
     try {
-      const response = await companyApi.apiKeys.rotate(tenantId, key.id);
-      if (!response.data?.success || !response.data.apiKey) {
-        throw new Error(response.data?.error || "Failed to rotate API key");
+      const response = activeSuperAdmin
+        ? await companyApi.apiKey.rotate(tenantId)
+        : await companyApi.apiKey.setupRotate(tenantId);
+      if (!response.data?.success) throw new Error(response.data?.error || "Failed to rotate the API key.");
+      const next = response.data.data as CompanyApiKeyRecord;
+      setRecord(next);
+      if (activeSuperAdmin) {
+        setKeyVisible("");
+      } else {
+        autoRevealKeyId.current = next.id;
+        const revealResponse = await companyApi.apiKey.setupRevealOnce(tenantId);
+        if (!revealResponse.data?.success || !revealResponse.data.apiKey) {
+          throw new Error(revealResponse.data?.error || "The key rotated, but its one-time reveal failed.");
+        }
+        setRecord(revealResponse.data.data as CompanyApiKeyRecord);
+        setKeyVisible(revealResponse.data.apiKey);
       }
-      setRevealedKey(response.data.apiKey);
-      onSecret?.(response.data.apiKey);
-      toast({ title: "API key rotated", description: "Copy the new key now. The previous key no longer works." });
-      await loadKeys();
+      toast({ title: "API key rotated", description: "The previous key no longer works." });
     } catch (rotateError: any) {
-      toast({
-        title: "Could not rotate API key",
-        description: rotateError?.response?.data?.error || rotateError?.message || "Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Could not rotate the API key", description: rotateError?.response?.data?.error || rotateError?.message || "Please try again.", variant: "destructive" });
+      await loadKey();
+    } finally {
+      setSaving(false);
     }
   };
+
+  const revokeKey = async () => {
+    if (!window.confirm("Revoking this key immediately stops API requests using it. Continue?")) return;
+    setSaving(true);
+    try {
+      const response = activeSuperAdmin
+        ? await companyApi.apiKey.revoke(tenantId)
+        : await companyApi.apiKey.setupRevoke(tenantId);
+      if (!response.data?.success) throw new Error(response.data?.error || "Failed to revoke the API key.");
+      setRecord(response.data.data as CompanyApiKeyRecord);
+      setKeyVisible("");
+      toast({ title: "API key revoked" });
+    } catch (revokeError: any) {
+      toast({ title: "Could not revoke the API key", description: revokeError?.response?.data?.error || revokeError?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateDeleteScope = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      const response = activeSuperAdmin
+        ? await companyApi.apiKey.updateScopes(tenantId, enabled)
+        : await companyApi.apiKey.setupUpdateScopes(enabled, tenantId);
+      if (!response.data?.success) throw new Error(response.data?.error || "Failed to update API scopes.");
+      const updated = response.data.data as CompanyApiKeyRecord;
+      setRecord(updated);
+      setAllowDelete(updated.scopes.some((scope) => scope.endsWith(":delete")));
+    } catch (scopeError: any) {
+      toast({ title: "Could not update API scopes", description: scopeError?.response?.data?.error || scopeError?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const status = record?.revokedAt || record?.status === "revoked" ? "Revoked" : record ? "Active" : "Not generated";
+  const canManage = Boolean(record);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">API Keys</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          External systems send <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key</code>. The key selects this company. The full key is shown only once.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {revealedKey && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-            <p className="font-medium">Copy this key now. It cannot be retrieved later.</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 break-all rounded bg-white px-2 py-1 text-xs dark:bg-slate-950">{revealedKey}</code>
-              <Button type="button" size="sm" variant="outline" onClick={() => void copyText(revealedKey)}>
-                <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setRevealedKey("")}>Dismiss</Button>
+    <>
+      <Card id="company-api-key-card">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">API key for this company</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {companyName || company?.name || "Company"}{companyCode || company?.companyCode ? ` · ${companyCode || company?.companyCode}` : ""}
+              </p>
             </div>
+            {record?.needsRegenerate && (
+              <span className="rounded-full border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                Needs regenerate
+              </span>
+            )}
           </div>
-        )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <>
+              <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div><p className="text-xs text-muted-foreground">Key prefix</p><code>{record?.keyPrefix || "—"}</code></div>
+                <div><p className="text-xs text-muted-foreground">Status</p><p>{status}</p></div>
+                <div><p className="text-xs text-muted-foreground">Created</p><p>{formatWhen(record?.createdAt)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Last used</p><p>{formatWhen(record?.lastUsedAt)}</p></div>
+              </div>
 
-        <form className="grid gap-3 rounded-md border p-3" onSubmit={(event) => void createKey(event)}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Name</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" placeholder="Website integration" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Requests per minute</span>
-              <input value={rateLimit} onChange={(event) => setRateLimit(event.target.value)} type="number" min={1} max={10000} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Expires</span>
-              <input value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} type="datetime-local" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">IP allowlist</span>
-              <input value={allowlist} onChange={(event) => setAllowlist(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" placeholder="Optional, comma-separated" />
-            </label>
-          </div>
-          <fieldset className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <legend className="mb-1 text-sm font-medium">Scopes</legend>
-            {API_SCOPES.map((scope) => (
-              <label key={scope} className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={scopes.includes(scope)}
-                  onChange={(event) => setScopes((current) => event.target.checked ? [...current, scope] : current.filter((item) => item !== scope))}
-                />
-                {scope}
-              </label>
-            ))}
-          </fieldset>
-          <div>
-            <Button type="submit" size="sm" disabled={saving || scopes.length === 0 || !name.trim()}>
-              {saving ? "Creating..." : "Create API key"}
-            </Button>
-          </div>
-        </form>
+              {record?.needsRegenerate && activeSuperAdmin && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                  <ShieldAlert className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">This legacy key cannot be recovered. Generate a replacement to store it securely.</span>
+                  <Button type="button" size="sm" onClick={() => void generateKey()} disabled={saving}>
+                    <KeyRound className="mr-1.5 h-3.5 w-3.5" /> Generate key
+                  </Button>
+                </div>
+              )}
 
-        {error && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-        {loading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-        ) : keys.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No API keys yet. Create one to let an external system call this company.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="text-xs text-muted-foreground">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Name</th>
-                  <th className="py-2 pr-3 font-medium">Prefix</th>
-                  <th className="py-2 pr-3 font-medium">Scopes</th>
-                  <th className="py-2 pr-3 font-medium">Last used</th>
-                  <th className="py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((key) => (
-                  <tr key={key.id} className="border-t align-top">
-                    <td className="py-2 pr-3">
-                      <div className="font-medium">{key.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {key.revokedAt ? "Revoked" : key.expiresAt ? `Expires ${formatWhen(key.expiresAt)}` : "No expiry"}
-                        {` · ${key.rateLimitPerMinute}/min`}
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 font-mono text-xs">{key.keyPrefix}…</td>
-                    <td className="py-2 pr-3 text-xs">{key.scopes.join(", ")}</td>
-                    <td className="py-2 pr-3 text-xs">{formatWhen(key.lastUsedAt)}</td>
-                    <td className="py-2">
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" variant="outline" disabled={Boolean(key.revokedAt)} onClick={() => void rotateKey(key)}>Rotate</Button>
-                        <Button type="button" size="sm" variant="outline" disabled={Boolean(key.revokedAt)} onClick={() => void revokeKey(key)}>Revoke</Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {record && record.needsRegenerate && !activeSuperAdmin && (
+                <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                  This legacy key cannot be recovered. Ask a Super Admin to generate a replacement.
+                </p>
+              )}
+
+              {record && !record.needsRegenerate && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+                  <code className="min-w-0 flex-1 break-all text-sm">
+                    {revealedKey || (activeSuperAdmin ? "dct_live_••••••••" : record.keyPrefix)}
+                  </code>
+                  {activeSuperAdmin ? (
+                    <>
+                      <Button type="button" size="sm" variant="outline" onClick={() => revealedKey ? setKeyVisible("") : openPasswordPrompt("show")} disabled={saving}>
+                        {revealedKey ? <EyeOff className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
+                        {revealedKey ? "Hide" : "Show"}
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => openPasswordPrompt("copy")} disabled={saving}>
+                        <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy
+                      </Button>
+                    </>
+                  ) : revealedKey ? (
+                    <>
+                      <Button type="button" size="sm" variant="outline" onClick={() => void copyToClipboard(revealedKey)}>
+                        <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => downloadKey(revealedKey)}>
+                        <Download className="mr-1.5 h-3.5 w-3.5" /> Download as .txt
+                      </Button>
+                    </>
+                  ) : record.revealedToCompanyAdminAt ? (
+                    <span className="text-xs text-muted-foreground">This key has already been shown.</span>
+                  ) : null}
+                </div>
+              )}
+
+              {!record && activeSuperAdmin && (
+                <Button type="button" size="sm" onClick={() => void generateKey()} disabled={saving}>
+                  <KeyRound className="mr-1.5 h-3.5 w-3.5" /> Generate key
+                </Button>
+              )}
+              {!record && !activeSuperAdmin && (
+                <p className="text-sm text-muted-foreground">No API key exists. Ask a Super Admin to generate one.</p>
+              )}
+
+              {record && revealedKey && !activeSuperAdmin && (
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Save this key now. It will not be shown again.</p>
+              )}
+
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                  {activeSuperAdmin && (
+                    <label className="mr-auto flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={allowDelete} onChange={(event) => void updateDeleteScope(event.target.checked)} disabled={saving || status !== "Active"} />
+                      Allow delete API operations
+                    </label>
+                  )}
+                  <Button type="button" size="sm" variant="outline" onClick={() => void rotateKey()} disabled={saving}>
+                    <RotateCw className="mr-1.5 h-3.5 w-3.5" /> {status === "Revoked" ? "Generate replacement" : "Rotate"}
+                  </Button>
+                  {status !== "Revoked" && (
+                    <Button type="button" size="sm" variant="destructive" onClick={() => void revokeKey()} disabled={saving}>
+                      Revoke
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+        <DialogContent>
+          <form onSubmit={(event) => void revealForSuperAdmin(event)}>
+            <DialogHeader>
+              <DialogTitle>Verify your password</DialogTitle>
+              <DialogDescription>Enter your Super Admin password to {revealPurpose === "copy" ? "copy" : "reveal"} this key. This action is recorded in the audit log.</DialogDescription>
+            </DialogHeader>
+            <label className="mt-4 block space-y-1 text-sm">
+              <span>Password</span>
+              <input autoFocus type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3" />
+            </label>
+            {passwordError && <p role="alert" className="mt-2 text-sm text-destructive">{passwordError}</p>}
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setPasswordOpen(false)} disabled={saving}>Cancel</Button>
+              <Button type="submit" disabled={saving || !password}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {revealPurpose === "copy" ? "Verify and copy" : "Verify and show"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

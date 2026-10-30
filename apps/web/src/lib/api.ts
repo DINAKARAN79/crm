@@ -179,6 +179,7 @@ api.interceptors.response.use(
     if (
       typeof token === 'string' &&
       (response.config.url?.includes('/auth/refresh') ||
+        response.config.url?.includes('/auth/heartbeat') ||
         response.config.url?.includes('/auth/stop-impersonation') ||
         response.config.url?.includes('/impersonate'))
     ) {
@@ -219,7 +220,11 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+  apiKey?: string;
   warning?: string;
+  ok?: boolean;
+  code?: string;
+  step?: "blocked_before_send" | "sent_to_provider";
   summary?: Record<string, number>;
   pagination?: {
     page: number;
@@ -247,7 +252,22 @@ export const authApi = {
   logout: () => api.post<ApiResponse>('/api/auth/logout'),
   me: () => api.get<ApiResponse>('/api/auth/me'),
   refresh: () => api.post<ApiResponse>('/api/auth/refresh'),
+  heartbeat: () => api.post<ApiResponse>('/api/auth/heartbeat'),
+  sessions: () => api.get<ApiResponse>('/api/auth/sessions'),
+  endSession: (id: string) => api.post<ApiResponse>(`/api/auth/sessions/${id}/end`),
   stopImpersonation: () => api.post<ApiResponse>('/api/auth/stop-impersonation'),
+};
+
+export const presenceApi = {
+  activeUsers: (params?: Record<string, string | boolean>) => api.get<ApiResponse>('/api/admin/active-users', {
+    params,
+    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+  }),
+  settings: () => api.get<ApiResponse>('/api/admin/presence-settings'),
+  saveSettings: (data: { idleTimeoutSeconds: number; heartbeatIntervalSeconds: number }) => api.put<ApiResponse>('/api/admin/presence-settings', data),
+  forceLogoutUser: (userId: string) => api.post<ApiResponse>(`/api/admin/active-users/${userId}/force-logout`),
+  forceLogoutSession: (sessionId: string) => api.post<ApiResponse>(`/api/admin/active-users/sessions/${sessionId}/force-logout`),
+  companyCounts: () => api.get<ApiResponse>('/api/super-admin/presence-counts'),
 };
 
 export const impersonationApi = {
@@ -261,6 +281,8 @@ export const leadApi = {
     api.get<ApiResponse>('/api/leads', { params }),
   statuses: () =>
     api.get<ApiResponse>('/api/leads/statuses'),
+  salesUsers: () =>
+    api.get<ApiResponse>('/api/leads/sales-users'),
   get: (id: string) =>
     api.get<ApiResponse>(`/api/leads/${id}`),
   create: (data: any) =>
@@ -639,6 +661,36 @@ export const searchApi = {
 };
 
 // Analytics API
+export const telephonySettingsApi = {
+  get: (tenantId?: string) =>
+    api.get<ApiResponse>('/api/setup/telephony', { params: tenantId ? { tenantId } : undefined }),
+  update: (data: Record<string, unknown>, tenantId?: string) =>
+    api.put<ApiResponse>('/api/setup/telephony', data, { params: tenantId ? { tenantId } : undefined }),
+  checkEmbedding: (origin: string, tenantId?: string) =>
+    api.post<ApiResponse>('/api/setup/telephony/check-embedding', { origin }, { params: tenantId ? { tenantId } : undefined }),
+  testConnection: (tenantId?: string) =>
+    api.post<ApiResponse>('/api/setup/telephony/test-connection', {}, { params: tenantId ? { tenantId } : undefined }),
+  testCall: (tenantId?: string) =>
+    api.post<ApiResponse>('/api/setup/telephony/test-call', {}, { params: tenantId ? { tenantId } : undefined }),
+  agents: (tenantId?: string) =>
+    api.get<ApiResponse>('/api/setup/telephony/agents', { params: tenantId ? { tenantId } : undefined }),
+  updateAgents: (data: { userIds?: string[]; profileId?: string; enabled: boolean }, tenantId?: string) =>
+    api.put<ApiResponse>('/api/setup/telephony/agents', data, { params: tenantId ? { tenantId } : undefined }),
+  logs: (tenantId?: string) =>
+    api.get<ApiResponse>('/api/setup/telephony/logs', { params: tenantId ? { tenantId } : undefined }),
+};
+
+export const clickToCallApi = {
+  place: (data: { leadId: string; phoneField?: 'phone' | 'mobile' | 'secondaryPhone' }) =>
+    api.post<ApiResponse>('/api/telephony/click-to-call', data),
+  clientConfig: () =>
+    api.get<ApiResponse>('/api/telephony/client-config'),
+  dialpadCallStarted: (data: { leadId: string; phoneField: 'phone' | 'mobile' | 'secondaryPhone' }) =>
+    api.post<ApiResponse>('/api/telephony/dialpad-call-started', data),
+  dialpadEvent: (data: Record<string, unknown>) =>
+    api.post<ApiResponse>('/api/telephony/dialpad-event', data),
+};
+
 export const analyticsApi = {
   getLeads: (params?: Record<string, any>) =>
     api.get<ApiResponse>('/api/analytics/leads', { params }),
@@ -1028,24 +1080,32 @@ export const companyApi = {
     api.get<ApiResponse>(`/api/admin/companies/${tenantId}/impersonation-settings`),
   updateImpersonationSettings: (tenantId: string, notifyOnAccess: boolean) =>
     api.put<ApiResponse>(`/api/admin/companies/${tenantId}/impersonation-settings`, { notifyOnAccess }),
-  apiKeys: {
-    list: (tenantId: string) =>
-      api.get<ApiResponse>(`/api/super-admin/companies/${tenantId}/api-keys`),
-    create: (tenantId: string, data: {
-      name: string;
-      scopes: string[];
-      rateLimitPerMinute?: number;
-      ipAllowlist?: string[];
-      expiresAt?: string | null;
-    }) => api.post<ApiResponse & { apiKey?: string }>(`/api/super-admin/companies/${tenantId}/api-keys`, data),
-    revoke: (tenantId: string, keyId: string) =>
-      api.post<ApiResponse>(`/api/super-admin/companies/${tenantId}/api-keys/${keyId}/revoke`),
-    rotate: (tenantId: string, keyId: string) =>
-      api.post<ApiResponse & { apiKey?: string }>(`/api/super-admin/companies/${tenantId}/api-keys/${keyId}/rotate`),
+  apiKey: {
+    get: (tenantId: string) =>
+      api.get<ApiResponse>(`/api/admin/companies/${tenantId}/api-key`),
+    reveal: (tenantId: string, password: string, purpose: 'show' | 'copy') =>
+      api.post<ApiResponse & { apiKey?: string }>(`/api/admin/companies/${tenantId}/api-key/reveal`, { password, purpose }),
+    generate: (tenantId: string) =>
+      api.post<ApiResponse>(`/api/admin/companies/${tenantId}/api-key/generate`),
+    rotate: (tenantId: string) =>
+      api.post<ApiResponse>(`/api/admin/companies/${tenantId}/api-key/rotate`),
+    revoke: (tenantId: string) =>
+      api.post<ApiResponse>(`/api/admin/companies/${tenantId}/api-key/revoke`),
+    updateScopes: (tenantId: string, allowDelete: boolean) =>
+      api.patch<ApiResponse>(`/api/admin/companies/${tenantId}/api-key/scopes`, { allowDelete }),
+    setupGet: (tenantId?: string) =>
+      api.get<ApiResponse>('/api/setup/api-key', { params: tenantId ? { tenantId } : undefined }),
+    setupRevealOnce: (tenantId?: string) =>
+      api.post<ApiResponse & { apiKey?: string }>('/api/setup/api-key/reveal-once', {}, { params: tenantId ? { tenantId } : undefined }),
+    setupRotate: (tenantId?: string) =>
+      api.post<ApiResponse>('/api/setup/api-key/rotate', {}, { params: tenantId ? { tenantId } : undefined }),
+    setupRevoke: (tenantId?: string) =>
+      api.post<ApiResponse>('/api/setup/api-key/revoke', {}, { params: tenantId ? { tenantId } : undefined }),
+    setupUpdateScopes: (allowDelete: boolean, tenantId?: string) =>
+      api.patch<ApiResponse>('/api/setup/api-key/scopes', { allowDelete }, { params: tenantId ? { tenantId } : undefined }),
   },
   apiCatalog: () => api.get<ApiResponse>('/api/super-admin/api-catalog'),
   apiBaseUrl: () => api.get<ApiResponse>('/api/super-admin/api-catalog/base-url'),
-  testApiConnectivity: () => api.post<ApiResponse>('/api/super-admin/api-catalog/connectivity'),
   telephony: {
     list: (tenantId: string) => api.get<ApiResponse>(`/api/super-admin/companies/${tenantId}/telephony`),
     create: (tenantId: string, data: { name?: string; rateLimitPerMinute?: number; ipAllowlist?: string[] }) =>

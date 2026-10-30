@@ -7,7 +7,7 @@ import {
   buildCompanyApiCatalog,
   validateCatalogBody,
 } from '../services/companyApiCatalog';
-import { getPublicApiBaseUrl, probeOwnApiHealth } from '../services/publicApiBaseUrl';
+import { getPublicApiBaseUrl } from '../services/publicApiBaseUrl';
 
 const router = Router();
 router.use(authenticate);
@@ -48,12 +48,6 @@ router.get('/', (_req: AuthRequest, res: Response) => {
 
 router.get('/base-url', (req: AuthRequest, res: Response) => {
   res.json({ success: true, data: resolvedBaseUrl(req) });
-});
-
-router.post('/connectivity', async (req: AuthRequest, res: Response) => {
-  const resolved = resolvedBaseUrl(req);
-  const probe = await probeOwnApiHealth(resolved.baseUrl);
-  res.json({ success: true, data: { ...probe, baseUrl: resolved.baseUrl, source: resolved.source } });
 });
 
 router.post('/validate', (req: AuthRequest, res: Response) => {

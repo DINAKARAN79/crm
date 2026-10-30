@@ -19,7 +19,7 @@ export const authorize = (objectName: string, requiredPermission: keyof Permissi
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
 
-      if (req.user.isSuperAdmin) {
+      if (req.user.isSuperAdmin || req.apiKey) {
         return next();
       }
 
@@ -52,7 +52,7 @@ export const authorizeAny = (checks: Array<[string, keyof Permission]>) => {
       if (!req.user) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
-      if (req.user.isSuperAdmin) return next();
+      if (req.user.isSuperAdmin || req.apiKey) return next();
 
       const perms = await EffectivePermissionService.getEffectivePermissionsCached(req.user, req.user.id);
       const allowed = checks.some(([objectName, requiredPermission]) => {
@@ -80,7 +80,7 @@ export const authorizeEffectivePermission = (permissionName: string) => {
       if (!req.user) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
-      if (req.user.isSuperAdmin) return next();
+      if (req.user.isSuperAdmin || req.apiKey) return next();
 
       const permissions = await EffectivePermissionService.getEffectivePermissionsCached(req.user, req.user.id);
       if (!EffectivePermissionService.hasPermissionIn(permissions, permissionName)) {

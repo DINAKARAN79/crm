@@ -99,37 +99,38 @@ describe('Header admin home refresh', () => {
     ['Superadmin', true],
     ['Admin', false],
     ['System Admin', false],
-  ])('shows the %s profile name beside the avatar and only user details and logout in its menu', async (name, isSuperAdmin) => {
+  ])('shows the user name beside the avatar and in the user menu for %s', async (name, isSuperAdmin) => {
     authState.profileName = name;
     authState.isSuperAdmin = isSuperAdmin;
-    const { getByRole, getByText, getAllByText, findByRole, getAllByRole, queryByRole } = render(
+    const { getByRole, getAllByText, findByRole, getAllByRole, queryByText, queryByRole } = render(
       <Header onMenuClick={() => undefined} />,
     );
     await act(async () => {
       await Promise.resolve();
     });
-    expect(getAllByText(name).length).toBeGreaterThan(0);
+    expect(getAllByText('Admin User').length).toBeGreaterThan(0);
+    expect(queryByText('user-1')).toBeNull();
+    expect(queryByText(name)).toBeNull();
+    expect(queryByText('admin@example.test')).toBeNull();
     const userMenuTrigger = getByRole('button', { name: 'Open user menu' });
     userMenuTrigger.focus();
     fireEvent.keyDown(userMenuTrigger, { key: 'Enter' });
-    const profileMenuItem = await findByRole('menuitem', { name: /Admin User.*admin@example\.test/ });
-    expect(getAllByRole('menuitem')).toHaveLength(2);
+    const profileMenuItem = await findByRole('menuitem', { name: 'Admin User' });
+    expect(getAllByRole('menuitem')).toHaveLength(3);
+    expect(queryByRole('menuitem', { name: 'Sessions' })).toBeTruthy();
     expect(queryByRole('menuitem', { name: 'Account details' })).toBeNull();
-    expect(queryByRole('menuitem', { name })).toBeNull();
     fireEvent.click(profileMenuItem);
 
     expect(getByRole('dialog')).toBeTruthy();
-    expect(getByRole('heading', { name: 'Admin User' })).toBeTruthy();
-    expect(getByText('user-1')).toBeTruthy();
-    expect(getByText('admin@example.test')).toBeTruthy();
-    expect(getByText('1234567890')).toBeTruthy();
-    if (!isSuperAdmin) {
-      expect(getByText('Platform administrator')).toBeTruthy();
-    }
-    expect(getByText(isSuperAdmin ? 'Super Admin' : 'Company user')).toBeTruthy();
-    expect(getAllByText(name).length).toBeGreaterThanOrEqual(2);
-    expect(getByText('Test Company')).toBeTruthy();
-    expect(getByText('Administrator')).toBeTruthy();
+    expect(getByRole('heading', { name: 'Name' })).toBeTruthy();
+    expect(getAllByText('Admin User').length).toBeGreaterThan(0);
+    expect(queryByText('user-1')).toBeNull();
+    expect(queryByText('admin@example.test')).toBeNull();
+    expect(queryByText('1234567890')).toBeNull();
+    expect(queryByText('Platform administrator')).toBeNull();
+    expect(queryByText(name)).toBeNull();
+    expect(queryByText('Test Company')).toBeNull();
+    expect(queryByText('Administrator')).toBeNull();
   });
 
   it('keeps logout available in the profile menu', async () => {

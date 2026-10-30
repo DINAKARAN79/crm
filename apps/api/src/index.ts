@@ -46,11 +46,16 @@ import { effectivePermissionRoutes as effectivePermissionRouter } from './routes
 import { profilePermissionRoutes as profilePermissionRouter } from './routes/profilePermissions';
 import { permissionSetGroupRoutes, userPermissionSetGroupRoutes } from './routes/permissionSetGroups';
 import { dataAdministrationRoutes as dataAdministrationRouter } from './routes/dataAdministration';
+import { mountExternalApi } from './middleware/requireApiKey';
 import { companyRoutes as companyRouter } from './routes/companies';
-import companyApiKeyRouter from './routes/companyApiKeys';
+import companyApiKeyRouter, { setupCompanyApiKeyRouter } from './routes/companyApiKeys';
 import companyApiCatalogRouter from './routes/companyApiCatalog';
 import companyTelephonyRouter from './routes/companyTelephony';
 import telephonyWebhookRouter from './routes/telephonyWebhook';
+import telephonyClickToCallRouter from './routes/telephonyClickToCall';
+import setupTelephonyRouter from './routes/setup/telephony';
+import activeUsersRouter, { presenceCountsRouter } from './routes/activeUsers';
+import { sweepIdleSessions } from './services/userPresence';
 import { greRoutes as greRouter } from './routes/gre';
 import listViewRouter from './routes/listViews';
 import setupUsersRouter from './routes/setup/users';
@@ -69,6 +74,7 @@ import impersonationRouter, { companyImpersonationRouter } from './routes/impers
 import { installImpersonationAuditStamp } from './services/impersonationContext';
 import { normalizeOverdueScheduledItems } from './services/leadWorkflowExtras';
 import { startSiteVisitMissedScheduler } from './services/siteVisitMissedJob';
+import { assertApiKeyEncryptionConfigured } from './services/apiKeys';
 
 export const createApp = () => {
   installImpersonationAuditStamp();
@@ -119,16 +125,16 @@ export const createApp = () => {
   app.use('/api/cp-portal', cpPortalRouter);
   app.use('/api/cp-portal-accounts', cpPortalAccountsRouter);
   app.use('/api/list-views', listViewRouter);
-  app.use('/api/leads', leadRouter);
-  app.use('/api/enquiries', enquiryRouter);
-  app.use('/api/site-visits', siteVisitRouter);
+  mountExternalApi(app, '/api/leads', leadRouter);
+  mountExternalApi(app, '/api/enquiries', enquiryRouter);
+  mountExternalApi(app, '/api/site-visits', siteVisitRouter);
   app.use('/api/quotations', quotationRouter);
-  app.use('/api/bookings', bookingRouter);
+  mountExternalApi(app, '/api/bookings', bookingRouter);
   app.use('/api/receipts', receiptRouter);
-  app.use('/api/projects', projectRouter);
-  app.use('/api/units', unitRouter);
-  app.use('/api/follow-ups', followUpRouter);
-  app.use('/api/activities', activityRouter);
+  mountExternalApi(app, '/api/projects', projectRouter);
+  mountExternalApi(app, '/api/units', unitRouter);
+  mountExternalApi(app, '/api/follow-ups', followUpRouter);
+  mountExternalApi(app, '/api/activities', activityRouter);
   app.use('/api/users', userRouter);
   app.use('/api/setup/users', setupUsersRouter);
   app.use('/api/setup/company-settings', setupCompanySettingsRouter);
@@ -145,10 +151,15 @@ export const createApp = () => {
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/admin', activeUsersRouter);
   app.use('/api/integrations/telephony', telephonyWebhookRouter);
-  app.use('/api/super-admin/companies/:tenantId/api-keys', companyApiKeyRouter);
+  app.use('/api/telephony', telephonyClickToCallRouter);
+  app.use('/api/setup/telephony', setupTelephonyRouter);
+  app.use('/api/admin/companies/:tenantId/api-key', companyApiKeyRouter);
+  app.use('/api/setup', setupCompanyApiKeyRouter);
   app.use('/api/super-admin/companies/:tenantId/telephony', companyTelephonyRouter);
   app.use('/api/super-admin/api-catalog', companyApiCatalogRouter);
+  app.use('/api/super-admin/presence-counts', presenceCountsRouter);
   app.use('/api/super-admin', companyRouter);
   app.use('/api/super-admin/project-layouts', projectLayoutsRouter);
   app.use('/api/project-layouts', projectLayoutQuotationRouter);
@@ -177,7 +188,7 @@ export const createApp = () => {
   app.use('/api/profile-security', profileSecurityRouter);
   app.use('/api/rrqueues', rrQueueRouter);
   app.use('/api/notes', notesRouter);
-  app.use('/api/call-details', callDetailsRouter);
+  mountExternalApi(app, '/api/call-details', callDetailsRouter);
   app.use('/api/gre', greRouter);
 
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -195,6 +206,13 @@ export const createApp = () => {
 const app = createApp();
 
 if (require.main === module) {
+  try {
+    assertApiKeyEncryptionConfigured();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : 'API_KEY_ENCRYPTION_SECRET is invalid.');
+    process.exitCode = 1;
+    throw error;
+  }
   const PORT = process.env.PORT || 3001;
   const normalizeOverdueItems = () => {
     void normalizeOverdueScheduledItems().catch((error) => {
@@ -204,6 +222,14 @@ if (require.main === module) {
   normalizeOverdueItems();
   const overdueItemsTimer = setInterval(normalizeOverdueItems, 60_000);
   overdueItemsTimer.unref();
+  const sweepPresence = () => {
+    void sweepIdleSessions().catch((error) => {
+      console.error('Presence sweep error', error instanceof Error ? error.name : 'error');
+    });
+  };
+  sweepPresence();
+  const presenceTimer = setInterval(sweepPresence, 30_000);
+  presenceTimer.unref();
   startSiteVisitMissedScheduler();
   app.listen(PORT, () => {
     console.log(`DCT CRM API server running on port ${PORT}`);

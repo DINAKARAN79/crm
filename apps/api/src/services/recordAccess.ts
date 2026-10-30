@@ -63,7 +63,8 @@ export async function getRecordScope(
 }
 
 export async function getLeadRecordScope(user: AuthUserLike): Promise<RecordScope> {
-  return getRecordScope(user, 'Lead', 'LEAD');
+  if (user.isSuperAdmin || user.isAdmin) return { type: 'ALL' };
+  return { type: 'OWNER', userId: user.id };
 }
 
 /** Shared site-visit access clause: assignee or creator of an active SCHEDULED visit. */
@@ -80,15 +81,14 @@ function activeSiteVisitShare(userId: string) {
 
 /**
  * Owner-based Lead list/detail scope.
- * ALL → no owner filter. OWNER → own leads + active SV workflow share.
+ * ALL → no owner filter.
+ * OWNER → leads this user owns, plus an active scheduled site-visit share.
+ * A lead assigned to someone else stays off this user's list, even if they created it.
  */
 export function leadScopeClause(scope: RecordScope): Record<string, unknown> | null {
   if (scope.type === 'ALL') return null;
   return {
     OR: [
-      // Record access = current lead OWNER. A creator does NOT retain access
-      // after Round Robin / handoff / admin owner change reassigns the lead
-      // (owner change must remove it from the previous owner's list server-side).
       { ownerId: scope.userId },
       activeSiteVisitShare(scope.userId),
     ],
@@ -103,8 +103,6 @@ export async function canAccessLead(
   const scope = await getLeadRecordScope(user);
   if (scope.type === 'ALL') return true;
   if (lead.ownerId && lead.ownerId === scope.userId) return true;
-
-  // Creator no longer retains access once ownership has moved to another user.
   const shared = await prisma.siteVisit.findFirst({
     where: {
       leadId: lead.id,

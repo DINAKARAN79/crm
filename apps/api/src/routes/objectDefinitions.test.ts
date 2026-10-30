@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   isSuperAdmin: false,
+  isAdmin: false,
   getObjectDefinitions: vi.fn(),
   getObjectDefinition: vi.fn(),
 }));
@@ -14,7 +15,7 @@ vi.mock('@dct-crm/db', () => ({ prisma: {} }));
 vi.mock('../middleware/auth', () => ({
   authenticate: (req: Request, _res: ExpressResponse, next: NextFunction) => {
     Object.assign(req, {
-      user: { id: 'user-1', tenantId: 'tenant-1', isSuperAdmin: state.isSuperAdmin },
+      user: { id: 'user-1', tenantId: 'tenant-1', isSuperAdmin: state.isSuperAdmin, isAdmin: state.isAdmin },
       tenantId: 'tenant-1',
     });
     next();
@@ -45,9 +46,11 @@ async function request(path: string) {
 
 beforeEach(() => {
   state.isSuperAdmin = false;
+  state.isAdmin = false;
   vi.clearAllMocks();
   state.getObjectDefinitions.mockResolvedValue([
     { name: 'Lead', pluralLabel: 'Leads' },
+    { name: 'User', pluralLabel: 'Users' },
     { name: 'Company', pluralLabel: 'Companies' },
     { name: 'CompaniesAPI', pluralLabel: 'Companies API' },
   ]);
@@ -70,13 +73,25 @@ describe('object definition visibility', () => {
     expect(body.data.map((object) => object.name)).toEqual(['Lead']);
   });
 
+  it('shows the User object to an admin and hides it from everyone else', async () => {
+    state.isAdmin = true;
+    const allowed = await request('/api/objects');
+    const allowedBody = await allowed.json() as { data: Array<{ name: string }> };
+    expect(allowedBody.data.map((object) => object.name)).toEqual(['Lead', 'User']);
+
+    state.isAdmin = false;
+    const denied = await request('/api/objects/user');
+    expect(denied.status).toBe(403);
+    expect(state.getObjectDefinition).not.toHaveBeenCalled();
+  });
+
   it('returns Company and Companies API definitions to super admins', async () => {
     state.isSuperAdmin = true;
     const response = await request('/api/objects');
     const body = await response.json() as { data: Array<{ name: string }> };
 
     expect(response.status).toBe(200);
-    expect(body.data.map((object) => object.name)).toEqual(['Lead', 'Company', 'CompaniesAPI']);
+    expect(body.data.map((object) => object.name)).toEqual(['Lead', 'User', 'Company', 'CompaniesAPI']);
   });
 
   it('does not expose Company definitions by direct request to company users', async () => {

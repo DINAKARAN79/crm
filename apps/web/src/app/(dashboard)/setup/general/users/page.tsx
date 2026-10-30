@@ -78,7 +78,9 @@ import {
   permissionApi,
   permissionSetGroupApi,
   userPermissionSetGroupApi,
+  presenceApi,
 } from "@/lib/api";
+import { LoggedInBadge } from "@/components/crm/logged-in-badge";
 
 import {
   useToast,
@@ -87,6 +89,8 @@ import {
 import {
   useAuth,
 } from "@/contexts/auth-context";
+
+import { normalizeUserPhone } from "@dct-crm/shared";
 
 import {
   Plus,
@@ -195,6 +199,10 @@ interface User {
   roles: UserRole[];
 
   isActive: boolean;
+
+  isLoggedIn?: boolean;
+
+  lastSeenAt?: string | null;
 
   status: "active" | "inactive";
 
@@ -330,6 +338,10 @@ function normalizeUser(user: any): User {
     isActive:
       user?.isActive !== false,
 
+    isLoggedIn: Boolean(user?.isLoggedIn),
+
+    lastSeenAt: user?.lastSeenAt || null,
+
     status:
       user?.isActive === false
         ? "inactive"
@@ -346,7 +358,7 @@ function normalizeUser(user: any): User {
 
 export default function UsersPage() {
   const { toast } = useToast();
-  const { refresh: refreshAuth } = useAuth();
+  const { refresh: refreshAuth, tenant, isAdmin, isSuperAdmin } = useAuth();
 
   /* -------------------------------------------------------
      USERS
@@ -364,6 +376,7 @@ export default function UsersPage() {
   const [error, setError] =
     React.useState<string | null>(null);
 
+  const [onlineOnly, setOnlineOnly] = React.useState(false);
   const [searchQuery, setSearchQuery] =
     React.useState("");
 
@@ -404,6 +417,9 @@ export default function UsersPage() {
 
   const [saving, setSaving] =
     React.useState(false);
+
+  const phoneCheck = normalizeUserPhone(formData.phone, tenant?.country);
+  const phoneError = "error" in phoneCheck ? phoneCheck.error : "";
 
   /* -------------------------------------------------------
      DELETE
@@ -591,11 +607,13 @@ export default function UsersPage() {
       const query =
         searchQuery.trim().toLowerCase();
 
+      const source = onlineOnly ? users.filter((user) => user.isLoggedIn) : users;
+
       if (!query) {
-        return users;
+        return source;
       }
 
-      return users.filter((user) => {
+      return source.filter((user) => {
         return (
           user.name
             ?.toLowerCase()
@@ -621,6 +639,7 @@ export default function UsersPage() {
     }, [
       users,
       searchQuery,
+      onlineOnly,
     ]);
 
   const activeUsers =
@@ -715,6 +734,15 @@ export default function UsersPage() {
       return;
     }
 
+    if (phoneError) {
+      toast({
+        title: "Validation",
+        description: phoneError,
+        variant: "destructive" as any,
+      });
+      return;
+    }
+
     const password = formData.password.trim();
     if (dialogMode === "create" && password.length < 8) {
       toast({ title: "Validation", description: "Password must be at least 8 characters", variant: "destructive" as any });
@@ -750,8 +778,7 @@ export default function UsersPage() {
           lastName,
 
           phone:
-            formData.phone.trim() ||
-            undefined,
+            formData.phone.trim(),
 
           profileId:
             formData.profileId ||
@@ -789,8 +816,7 @@ export default function UsersPage() {
             lastName,
 
             phone:
-              formData.phone.trim() ||
-              undefined,
+              formData.phone.trim(),
 
             profileId:
               formData.profileId ||
@@ -1492,6 +1518,10 @@ export default function UsersPage() {
                     Status
                   </TableHead>
 
+                  <TableHead>
+                    Is Logged In
+                  </TableHead>
+
                   <TableHead className="text-right">
                     Action
                   </TableHead>
@@ -1545,6 +1575,10 @@ export default function UsersPage() {
                             ? "Active"
                             : "Inactive"}
                         </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        <LoggedInBadge online={Boolean(user.isLoggedIn)} lastSeenAt={user.lastSeenAt} />
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -1629,6 +1663,11 @@ export default function UsersPage() {
 
               </div>
 
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={onlineOnly} onChange={(event) => setOnlineOnly(event.target.checked)} />
+                Online users only
+              </label>
+
             </div>
 
             <ScrollArea className="h-[560px]">
@@ -1669,9 +1708,9 @@ export default function UsersPage() {
 
                     <div className="min-w-0 flex-1">
 
-                      <p className="truncate font-medium">
-                        {user.name ||
-                          "Unnamed user"}
+                      <p className="flex items-center gap-2 truncate font-medium">
+                        <span className="truncate">{user.name || "Unnamed user"}</span>
+                        <LoggedInBadge online={Boolean(user.isLoggedIn)} lastSeenAt={user.lastSeenAt} />
                       </p>
 
                       <p className="truncate text-sm text-muted-foreground">
@@ -1746,6 +1785,7 @@ export default function UsersPage() {
                         {detailUser.name ||
                           "Unnamed user"}
                       </h2>
+                      <LoggedInBadge online={Boolean(detailUser.isLoggedIn)} lastSeenAt={detailUser.lastSeenAt} />
 
                       <Badge
                         variant={
@@ -1784,6 +1824,18 @@ export default function UsersPage() {
 
                   </div>
 
+                  {(isAdmin || isSuperAdmin) && (
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        if (!window.confirm(`Force logout ${detailUser.name}?`)) return;
+                        await presenceApi.forceLogoutUser(detailUser.id);
+                        await fetchUsers();
+                      }}
+                    >
+                      Force logout
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="icon"
@@ -2101,7 +2153,7 @@ export default function UsersPage() {
               <div className="space-y-2">
 
                 <Label>
-                  Phone
+                  Phone <span className="text-destructive">*</span>
                 </Label>
 
                 <Input
@@ -2118,8 +2170,10 @@ export default function UsersPage() {
                       })
                     )
                   }
-                  placeholder="Enter phone number"
+                  placeholder="+91 98765 43210"
+                  aria-invalid={Boolean(phoneError)}
                 />
+                {phoneError && <p className="text-sm text-destructive">{phoneError}</p>}
 
               </div>
 
@@ -2313,7 +2367,7 @@ export default function UsersPage() {
 
               <Button
                 type="submit"
-                disabled={saving}
+                disabled={saving || Boolean(phoneError) || !formData.name.trim() || !formData.email.trim()}
               >
                 {saving
                   ? "Saving..."

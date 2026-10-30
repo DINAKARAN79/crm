@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { prisma } from '@dct-crm/db';
 import { EffectivePermission } from '../services/effectivePermissions';
-import { ApiKeyAuthError, authenticatePresentedApiKey, presentedApiKey } from '../services/apiKeys';
+import { ApiKeyAuthError, authenticatePresentedApiKey, presentedApiKey, requestIp } from '../services/apiKeys';
 import { impersonationStore } from '../services/impersonationContext';
 import {
   ImpersonationError,
@@ -11,6 +11,8 @@ import {
   installResponseRedaction,
   loadImpersonation,
 } from '../services/impersonation';
+import { sessionIsAccepted } from '../services/userPresence';
+import { auditLog } from './audit';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -25,6 +27,7 @@ export interface AuthRequest extends Request {
   };
   tenantId?: string;
   sessionLoginAt?: number;
+  sessionSecret?: string;
   tokenExpiresAt?: number;
   impersonation?: ImpersonationState;
   apiKey?: {
@@ -41,6 +44,7 @@ export const authenticate = async (
   next: NextFunction
 ) => {
   try {
+    if (req.apiKey && req.user && req.tenantId) return next();
     const apiKey = presentedApiKey(req);
     if (apiKey) {
       try {
@@ -55,7 +59,8 @@ export const authenticate = async (
         return next();
       } catch (error) {
         if (error instanceof ApiKeyAuthError) {
-          return res.status(error.status).json({ success: false, error: error.message });
+          if (error.status === 429) res.setHeader('Retry-After', '60');
+          return res.status(error.status).json({ success: false, error: error.message, ok: false, code: error.code, message: error.message });
         }
         console.error('API key authentication error:', error);
         return res.status(500).json({ success: false, error: 'Failed to authenticate API key' });
@@ -81,12 +86,17 @@ export const authenticate = async (
       isSuperAdmin: boolean;
       impersonatedBy?: string;
       loginAt?: number;
+      sid?: string;
       isImpersonation?: boolean;
       impersonationId?: string;
       exp?: number;
     };
     req.sessionLoginAt = typeof decoded.loginAt === 'number' ? decoded.loginAt : undefined;
+    req.sessionSecret = typeof decoded.sid === 'string' ? decoded.sid : undefined;
     req.tokenExpiresAt = typeof decoded.exp === 'number' ? decoded.exp : undefined;
+    if (req.sessionSecret && !(await sessionIsAccepted(req.sessionSecret))) {
+      return res.status(401).json({ success: false, error: 'Session ended' });
+    }
     if (decoded.isImpersonation) {
       const loaded = await loadImpersonation(decoded);
       if (loaded) req.impersonation = loaded;
@@ -129,6 +139,12 @@ export const authenticate = async (
           return res.status(404).json({ success: false, error: 'Company not found' });
         }
         tenantId = selectedTenant.id;
+        if (requestedTenant !== user.tenantId) {
+          await auditLog(selectedTenant.id, user.id, 'SUPERADMIN_TENANT_ACCESS', 'Tenant', selectedTenant.id, undefined, {
+            method: req.method,
+            path: (req.originalUrl || req.url || '').split('?')[0],
+          }, requestIp(req));
+        }
       }
     }
 
@@ -180,6 +196,7 @@ export const generateToken = (
     isSuperAdmin: boolean;
     impersonatedBy?: string;
     loginAt?: number;
+    sessionId?: string;
     isImpersonation?: boolean;
     impersonationId?: string;
     viewOnly?: boolean;
@@ -194,6 +211,7 @@ export const generateToken = (
       isSuperAdmin: user.isSuperAdmin,
       impersonatedBy: user.impersonatedBy,
       loginAt: user.loginAt,
+      sid: user.sessionId,
       isImpersonation: user.isImpersonation,
       impersonationId: user.impersonationId,
       viewOnly: user.viewOnly,

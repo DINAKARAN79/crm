@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { BOOKING_FIELDS, BOOKING_STAGE_OPTIONS, BOOKING_OBJECT, bookingLayoutSections } from '@dct-crm/shared';
 import { REPORT_OBJECTS, type ReportFieldType } from '../reports/report-metadata';
+import { ensureUserObject } from './userObject';
 
 const STANDARD_OBJECTS = [
   { name: 'Lead', label: 'Lead', pluralLabel: 'Leads', icon: 'user', description: 'Manage sales leads' },
@@ -14,6 +15,7 @@ const STANDARD_OBJECTS = [
   { name: 'FollowUp', label: 'Follow-up', pluralLabel: 'Follow-ups', icon: 'phone', description: 'Manage lead follow-ups' },
   { name: 'Activity', label: 'Activity', pluralLabel: 'Activities', icon: 'activity', description: 'Track CRM activities' },
   { name: 'CallDetail', label: 'Call Detail', pluralLabel: 'Call Details', icon: 'phone', description: 'Track inbound and outbound calls', isAvailableInNavigation: false },
+  { name: 'User', label: 'Users', pluralLabel: 'Users', icon: 'users', description: 'Manage CRM users and their profiles', isAvailableInNavigation: false, isAvailableInReports: false },
 ] as const;
 
 const MODULE_READ_PERMISSIONS = [
@@ -40,6 +42,7 @@ const DEFAULT_ADMIN_PERMISSIONS = [
   'TASK_CREATE',
   'REPORT_CREATE',
   'DASHBOARD_CREATE',
+  'TELEPHONY_CALL',
 ];
 
 export interface TenantBootstrapResult {
@@ -405,6 +408,8 @@ export async function bootstrapTenant(
     data: ['LEAD', 'SITE_VISIT', 'FOLLOW_UP', 'ENQUIRY'].map((type) => ({ tenantId, type, nextValue: 1 })),
     skipDuplicates: true,
   });
+
+  await ensureUserObject(tx, tenantId, actorId);
 
   return {
     adminProfileId: adminProfile.id,

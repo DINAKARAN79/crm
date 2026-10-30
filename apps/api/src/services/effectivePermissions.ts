@@ -65,9 +65,7 @@ export class EffectivePermissionService {
 
     if (!user || !user.isActive) return [];
 
-    if (user.isSuperAdmin) {
-      return this.getAllSystemPermissions();
-    }
+    if (user.isSuperAdmin) return this.applyTelephonyAgentOverride(userId, user.tenantId, await this.getAllSystemPermissions());
 
     const [profilePerms, permSetPerms, groupPerms, directPerms, rolePerms] = await Promise.all([
       this.getProfilePermissions(user.profileId, user.tenantId),
@@ -82,10 +80,19 @@ export class EffectivePermissionService {
     const deduplicated = this.deduplicatePermissions(allPerms);
 
     if (deduplicated.some((p) => p.name === FULL_SYSTEM_ACCESS)) {
-      return this.getAllSystemPermissions();
+      return this.applyTelephonyAgentOverride(userId, user.tenantId, await this.getAllSystemPermissions());
     }
 
-    return deduplicated;
+    return this.applyTelephonyAgentOverride(userId, user.tenantId, deduplicated);
+  }
+
+  private static async applyTelephonyAgentOverride(userId: string, tenantId: string, permissions: EffectivePermission[]) {
+    const override = await prisma.telephonyAgentPermission.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { canUse: true },
+    });
+    if (override?.canUse !== false) return permissions;
+    return permissions.filter((permission) => normalizePermissionName(permission.name) !== 'TELEPHONY_CALL');
   }
 
   static async getEffectiveFieldPermissions(userId: string, objectId: string): Promise<EffectiveFieldPermission[]> {
@@ -444,6 +451,16 @@ export class EffectivePermissionService {
   }
 
   static async hasPermission(userId: string, permissionName: string): Promise<boolean> {
+    if (normalizePermissionName(permissionName) === 'TELEPHONY_CALL') {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true } });
+      if (user) {
+        const override = await prisma.telephonyAgentPermission.findUnique({
+          where: { tenantId_userId: { tenantId: user.tenantId, userId } },
+          select: { canUse: true },
+        });
+        if (override?.canUse === false) return false;
+      }
+    }
     const perms = await this.getEffectivePermissions(userId);
     return this.hasPermissionIn(perms, permissionName);
   }

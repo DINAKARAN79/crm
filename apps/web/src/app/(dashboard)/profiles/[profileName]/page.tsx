@@ -2,13 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { readHomeProfile, rememberHomeProfile, userHomePath } from "@/lib/user-home-path";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Users, Briefcase, FolderKanban, LayoutDashboard, CalendarCheck, Plus, ArrowRight, Pencil, Sparkles } from "lucide-react";
 import { analyticsApi, followUpApi, activityApi, homepageApi, profileApi } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { DashboardValuesWidget } from "@/components/crm/dashboard-values-widget";
+import { ActiveUsersCard } from "@/components/crm/active-users-card";
 
 const profileConfig: Record<string, { title: string; description: string; accent: string; modules: string[] }> = {
   marketing: {
@@ -163,12 +165,18 @@ function profileHomepageWidgetLabel(id: string) {
 }
 
 export default function ProfileLandingPage() {
-  const params = useParams<{ profileName: string }>();
+  const params = useParams<{ profileName?: string; tenantName?: string; userId?: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const { hasPermission, isAdmin, isSuperAdmin, profile } = useAuth();
+  const { hasPermission, isAdmin, isSuperAdmin, profile, user, tenant } = useAuth();
   const canEditProfileHome = isAdmin || isSuperAdmin;
-  const requestedProfileId = searchParams.get("profileId");
-  const requestedProfileLabel = searchParams.get("profileLabel");
+  const isUserHome = Boolean(params.tenantName && params.userId);
+  const [storedProfile, setStoredProfile] = React.useState<{ id: string; label: string } | null>(null);
+  const requestedProfileId =
+    searchParams.get("profileId") || storedProfile?.id || (isUserHome ? profile?.id || null : null);
+  const requestedProfileLabel =
+    searchParams.get("profileLabel") || storedProfile?.label || (isUserHome ? profile?.name || null : null);
+  const activeProfileName = params.profileName || profileSlug(requestedProfileLabel || "");
   const [loading, setLoading] = React.useState(true);
   const [selectedProfileId, setSelectedProfileId] = React.useState<string | null>(requestedProfileId);
   const [selectedHomepageId, setSelectedHomepageId] = React.useState<string | null>(null);
@@ -195,9 +203,29 @@ export default function ProfileLandingPage() {
   const profileEditHref = `/admin/customize-home/create?${profileEditParams}`;
 
   React.useEffect(() => {
-    const rawName = requestedProfileLabel || (params.profileName || "").replace(/-/g, " ");
+    if (!isUserHome) return;
+    setStoredProfile(readHomeProfile());
+  }, [isUserHome]);
+
+  React.useEffect(() => {
+    if (!params.profileName || !user?.id) return;
+    const id = searchParams.get("profileId") || profile?.id;
+    const label = searchParams.get("profileLabel") || profile?.name || "";
+    if (id) rememberHomeProfile({ id, label });
+    router.replace(userHomePath(tenant, user.id));
+  }, [params.profileName, profile?.id, profile?.name, router, searchParams, tenant, user?.id]);
+
+  React.useEffect(() => {
+    if (!params.tenantName || !params.userId || !user?.id || !tenant) return;
+    const current = `/${encodeURIComponent(decodeURIComponent(params.tenantName))}/${encodeURIComponent(decodeURIComponent(params.userId))}`;
+    const expected = userHomePath(tenant, user.id);
+    if (current !== expected) router.replace(expected);
+  }, [params.tenantName, params.userId, router, tenant, user?.id]);
+
+  React.useEffect(() => {
+    const rawName = requestedProfileLabel || (activeProfileName || "").replace(/-/g, " ");
     const key = normalizeProfileKey(rawName);
-    const knownConfig = profileConfig[key] || profileConfig[params.profileName || ""];
+    const knownConfig = profileConfig[key] || profileConfig[activeProfileName || ""];
 
     const defaultTitle = knownConfig?.title || rawName || "Profile";
     const defaultDescription = knownConfig?.description || "Profile overview and operational summary.";
@@ -209,7 +237,7 @@ export default function ProfileLandingPage() {
     setLocalPage(page);
 
     setLoading(false);
-  }, [params.profileName, requestedProfileLabel]);
+  }, [activeProfileName, requestedProfileLabel]);
 
   React.useEffect(() => {
     let active = true;
@@ -230,7 +258,7 @@ export default function ProfileLandingPage() {
         : homepageApi.list(),
     ])
       .then(([profilesResponse, homepagesResponse]) => {
-        const profileName = profileSlug((params.profileName || "").replace(/-/g, " "));
+        const profileName = profileSlug((activeProfileName || "").replace(/-/g, " "));
         const selectedProfile = viewingAssignedProfile && profile?.id
           ? profile
           : requestedProfileId
@@ -291,7 +319,7 @@ export default function ProfileLandingPage() {
     };
   }, [
     canEditProfileHome,
-    params.profileName,
+    activeProfileName,
     profile?.id,
     profile?.name,
     requestedProfileId,
@@ -444,6 +472,14 @@ export default function ProfileLandingPage() {
     );
   }
 
+  const welcomeName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || localPage.title || "there";
+  const welcomeInitials = welcomeName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "PR";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -455,14 +491,16 @@ export default function ProfileLandingPage() {
         </div>
       </div>
 
+      {(isAdmin || isSuperAdmin) && <ActiveUsersCard />}
+
       <div className="relative isolate flex min-h-[120px] items-center justify-between gap-4 overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-r from-[#2145b8] via-[#2865e7] to-[#35b9e8] px-6 py-5 text-white shadow-md">
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-[42%] h-56 w-56 rounded-full border-[18px] border-white/10" />
         <div className="relative z-10 flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-white/60 bg-white/90 text-xl font-bold text-blue-700 shadow-sm">
-            {localPage.title.slice(0, 2).toUpperCase() || "PR"}
+            {welcomeInitials}
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome {localPage.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome {welcomeName}</h1>
             <p className="mt-1 text-sm text-white/85">{localPage.description}</p>
             <div className="mt-3 h-1 w-9 rounded-full bg-cyan-200" />
           </div>
@@ -505,7 +543,7 @@ export default function ProfileLandingPage() {
           Here&apos;s what&apos;s happening today.
         </p>
         <div className="rounded-lg border border-sky-100 bg-white px-3 py-2 font-medium text-blue-700 shadow-sm">
-          {localPage.title}&apos;s Home
+          {welcomeName}&apos;s Home
         </div>
       </div>
 

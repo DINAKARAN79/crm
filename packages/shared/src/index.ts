@@ -320,6 +320,75 @@ export function normalizePhone(raw: string): string {
   return raw.replace(/\s+/g, '');
 }
 
+export const PHONE_REQUIRED_MESSAGE = 'Phone is required';
+export const PHONE_INVALID_MESSAGE = 'Enter a valid phone number with 10 to 15 digits.';
+
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  india: '91',
+  in: '91',
+  'united states': '1',
+  'united states of america': '1',
+  us: '1',
+  usa: '1',
+  'united kingdom': '44',
+  uk: '44',
+  gb: '44',
+  uae: '971',
+  'united arab emirates': '971',
+  australia: '61',
+  au: '61',
+  singapore: '65',
+  sg: '65',
+};
+
+const NATIONAL_LENGTHS: Record<string, number> = {
+  '1': 10,
+  '44': 10,
+  '91': 10,
+  '971': 9,
+  '61': 9,
+  '65': 8,
+};
+
+export function countryDialCode(country: string | null | undefined, fallback = '91'): string {
+  const trimmed = country?.trim() || '';
+  if (!trimmed) return fallback;
+  if (/^\+?\d{1,3}$/.test(trimmed)) {
+    const digits = trimmed.replace(/\D/g, '').replace(/^00/, '');
+    return /^[1-9]\d{0,2}$/.test(digits) ? digits : fallback;
+  }
+  return COUNTRY_DIAL_CODES[trimmed.toLowerCase()] || fallback;
+}
+
+export function normalizeUserPhone(
+  value: string | null | undefined,
+  country?: string | null,
+): { e164: string } | { error: string } {
+  const raw = value?.trim() ?? '';
+  if (!raw) return { error: PHONE_REQUIRED_MESSAGE };
+  if (/[a-z]/i.test(raw)) return { error: PHONE_INVALID_MESSAGE };
+
+  const compact = raw.replace(/[\s().-]/g, '');
+  if (!/^\+?\d+$/.test(compact) && !/^00\d+$/.test(compact)) return { error: PHONE_INVALID_MESSAGE };
+
+  const explicitInternational = compact.startsWith('+') || compact.startsWith('00');
+  let digits = compact.replace(/\D/g, '');
+  if (compact.startsWith('00')) digits = digits.slice(2);
+  if (!explicitInternational) {
+    digits = digits.replace(/^0+/, '');
+    const code = countryDialCode(country);
+    const nationalLength = NATIONAL_LENGTHS[code];
+    const alreadyInternational = digits.startsWith(code)
+      && digits.length > (nationalLength ?? code.length)
+      && digits.length <= 15;
+    if (!alreadyInternational) digits = `${code}${digits}`;
+  }
+  if (digits.length < 10 || digits.length > 15 || !/^[1-9]\d+$/.test(digits)) {
+    return { error: PHONE_INVALID_MESSAGE };
+  }
+  return { e164: `+${digits}` };
+}
+
 // ============================================
 // AUTH SCHEMAS
 // ============================================

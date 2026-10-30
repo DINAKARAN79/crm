@@ -267,7 +267,7 @@ export default function SetupProfilesPage() {
   };
 
   const filteredProfiles = profiles.filter((profile) => `${profile.name} ${profile.description || ""}`.toLowerCase().includes(search.toLowerCase()));
-  const systemPermissions = allPermissions.filter((permission) => ["SYSTEM", "USER", "ROLE", "PROFILE", "PERMISSION_SET", "REPORT", "DASHBOARD", "DATA"].includes(permission.module));
+  const systemPermissions = allPermissions.filter((permission) => ["SYSTEM", "USER", "ROLE", "PROFILE", "PERMISSION_SET", "REPORT", "DASHBOARD", "DATA", "TELEPHONY"].includes(permission.module));
   const selectedUserCount = selected?._count?.users || 0;
   const deleteBlockedReason = !isAdmin && !hasEffectivePermission("PROFILE_DELETE")
     ? "You do not have permission to delete profiles."

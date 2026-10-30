@@ -50,7 +50,7 @@ export interface AuthContextType {
   hasFullAccess: boolean;
   isSuperAdmin: boolean;
   isAdmin: boolean;
-  tenant: { id: string; name: string; slug: string } | null;
+  tenant: { id: string; name: string; slug: string; country?: string | null } | null;
   leadStatuses: LeadStatusOption[];
   getLeadStatusLabel: (status: string) => string;
   isLoading: boolean;
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasFullAccess, setHasFullAccess] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const [tenant, setTenant] = React.useState<{ id: string; name: string; slug: string } | null>(null);
+  const [tenant, setTenant] = React.useState<{ id: string; name: string; slug: string; country?: string | null } | null>(null);
   const [leadStatuses, setLeadStatuses] = React.useState<LeadStatusOption[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           void impersonationApi.exit().catch(() => undefined).finally(finish);
           return;
         }
-        finish();
+        void authApi.logout().catch(() => undefined).finally(finish);
         return;
       }
       idleTimer = setTimeout(endSessionIfIdle, remaining);
@@ -178,6 +178,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("scroll", handleActivity, { passive: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    let heartbeatTimer: number | undefined;
+    const sendHeartbeat = () => {
+      if (document.visibilityState !== "visible") return;
+      void authApi.heartbeat().catch(() => undefined);
+    };
+    const armHeartbeat = () => {
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
+      if (document.visibilityState !== "visible") return;
+      sendHeartbeat();
+      heartbeatTimer = window.setInterval(sendHeartbeat, 30_000);
+    };
+    const pauseHeartbeat = () => {
+      if (document.visibilityState === "visible") {
+        armHeartbeat();
+        return;
+      }
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    };
+    const sendCloseBeacon = () => {
+      const token = getSessionToken();
+      if (!token) return;
+      const body = new Blob([JSON.stringify({ token })], { type: "application/json" });
+      navigator.sendBeacon("/api/proxy/api/auth/leave", body);
+    };
+    armHeartbeat();
+    document.addEventListener("visibilitychange", pauseHeartbeat);
+    window.addEventListener("pagehide", sendCloseBeacon);
+
     return () => {
       clearTimeout(idleTimer);
       if (refreshTimer) clearTimeout(refreshTimer);
@@ -188,6 +217,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("wheel", handleActivity);
       window.removeEventListener("scroll", handleActivity);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
+      document.removeEventListener("visibilitychange", pauseHeartbeat);
+      window.removeEventListener("pagehide", sendCloseBeacon);
     };
   }, [user]);
 

@@ -8,6 +8,8 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireSuperAdmin } from '../middleware/superAdmin';
 import { auditLog } from '../middleware/audit';
 import { bootstrapTenant } from '../services/tenantBootstrap';
+import { issueDefaultApiKey } from '../services/apiKeys';
+import { resolveUserPhoneChange } from '../services/userPhone';
 import {
   validateFile,
   generateSafeFilename,
@@ -72,6 +74,7 @@ const createCompanySchema = z.object({
     username: z.string().min(1, 'Admin username is required').max(100),
     adminName: z.string().max(200).optional().or(z.literal('')),
     email: z.string().email('Valid admin email is required'),
+    phone: z.string({ required_error: 'Phone is required' }).trim().min(1, 'Phone is required'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   }).optional(),
@@ -554,6 +557,16 @@ router.post('/companies', async (req: AuthRequest, res: Response) => {
     }
 
     const slug = cleanData.companyCode.toLowerCase().replace(/[_\s]+/g, '-');
+    const adminPhone = initialAdmin
+      ? resolveUserPhoneChange({
+          mode: 'create',
+          incomingPhone: initialAdmin.phone,
+          country: cleanData.country,
+        })
+      : null;
+    if (adminPhone && (!adminPhone.ok || !adminPhone.phone)) {
+      return res.status(400).json({ success: false, error: adminPhone.ok ? 'Phone is required' : adminPhone.error });
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -601,6 +614,7 @@ router.post('/companies', async (req: AuthRequest, res: Response) => {
             passwordHash,
             firstName,
             lastName,
+            phone: adminPhone && adminPhone.ok ? adminPhone.phone : null,
             isActive: true,
             profileId: adminProfileId,
             roleId: adminRoleId,
@@ -622,7 +636,30 @@ router.post('/companies', async (req: AuthRequest, res: Response) => {
         });
       }
 
-      return { tenant, adminUser };
+      const issued = await issueDefaultApiKey(tx, tenant.id, req.user!.id);
+      await tx.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          userId: req.user!.id,
+          action: 'API_KEY_CREATED',
+          objectType: 'ApiKey',
+          objectId: issued.record.id,
+          newValues: { keyPrefix: issued.record.keyPrefix, name: issued.record.name, scopes: issued.record.scopes },
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          userId: req.user!.id,
+          action: 'API_KEY_REVEALED',
+          objectType: 'ApiKey',
+          objectId: issued.record.id,
+          newValues: { companyId: tenant.id, occurredAt: new Date().toISOString() },
+          ipAddress: req.ip,
+        },
+      });
+
+      return { tenant, adminUser, apiKey: issued.apiKey };
     });
 
     await auditLog(
@@ -636,7 +673,9 @@ router.post('/companies', async (req: AuthRequest, res: Response) => {
       req.ip,
     );
 
-    res.status(201).json({ success: true, data: result.tenant });
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.status(201).json({ success: true, data: result.tenant, apiKey: result.apiKey });
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return res.status(400).json({ success: false, error: error.errors[0].message });

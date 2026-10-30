@@ -1,6 +1,7 @@
 import { prisma } from '@dct-crm/db';
 import { EffectivePermissionService } from './effectivePermissions';
 import { REPORT_OBJECTS } from '../reports/report-metadata';
+import { ensureUserObjectOnce, omitHiddenUserFields } from './userObject';
 
 const metadataCache = new Map<string, { data: any; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
@@ -62,6 +63,8 @@ export async function getObjectDefinitions(tenantId: string, includeInactive = f
   const cached = getCached(tenantId, cacheKey);
   if (cached) return cached;
 
+  await ensureUserObjectOnce(tenantId);
+
   const where: any = { tenantId };
   if (!includeInactive) where.isActive = true;
 
@@ -76,12 +79,16 @@ export async function getObjectDefinitions(tenantId: string, includeInactive = f
   const callDetailCount = objects.some((object) => object.name === 'CallDetail')
     ? await prisma.callDetail.count({ where: { tenantId } })
     : null;
+  const userCount = objects.some((object) => object.name === 'User')
+    ? await prisma.user.count({ where: { tenantId } })
+    : null;
   const normalized = objects.map((object) => ({
     ...object,
     _count: {
       ...object._count,
       ...(object._count.fields === 0 ? { fields: getVirtualStandardFields(object).length } : {}),
       ...(object.name === 'CallDetail' && callDetailCount !== null ? { records: callDetailCount } : {}),
+      ...(object.name === 'User' && userCount !== null ? { records: userCount } : {}),
     },
   }));
   setCache(tenantId, cacheKey, normalized);
@@ -111,11 +118,17 @@ export async function getObjectDefinition(tenantId: string, objectName: string) 
   });
 
   if (!object) return object;
+  const fields = object.fields.length === 0
+    ? omitHiddenUserFields(object.name, getVirtualStandardFields(object))
+    : omitHiddenUserFields(object.name, object.fields);
   const normalized = {
     ...object,
-    ...(object.fields.length === 0 ? { fields: getVirtualStandardFields(object) } : {}),
+    fields,
     ...(object.name === 'CallDetail'
       ? { _count: { ...object._count, records: await prisma.callDetail.count({ where: { tenantId } }) } }
+      : {}),
+    ...(object.name === 'User'
+      ? { _count: { ...object._count, records: await prisma.user.count({ where: { tenantId } }) } }
       : {}),
   };
   setCache(tenantId, cacheKey, normalized);
@@ -140,12 +153,14 @@ export async function getFieldDefinitions(tenantId: string, objectId: string) {
 
   if (fields.length === 0) {
     const object = await prisma.objectDefinition.findFirst({ where: { id: objectId, tenantId }, select: { id: true, name: true } });
-    const virtualFields = object ? getVirtualStandardFields(object) : [];
+    const virtualFields = object ? omitHiddenUserFields(object.name, getVirtualStandardFields(object)) : [];
     setCache(tenantId, cacheKey, virtualFields);
     return virtualFields;
   }
-  setCache(tenantId, cacheKey, fields);
-  return fields;
+  const object = await prisma.objectDefinition.findFirst({ where: { id: objectId, tenantId }, select: { name: true } });
+  const visibleFields = omitHiddenUserFields(object?.name, fields);
+  setCache(tenantId, cacheKey, visibleFields);
+  return visibleFields;
 }
 
 async function materializeEditableCatalogFields(
@@ -208,20 +223,20 @@ export async function getAllFieldDefinitions(tenantId: string, objectId: string,
       fields = await loadFields();
     }
   }
-  if (fields.length > 0 && objectName?.toLowerCase() !== 'lead') return fields;
+  if (fields.length > 0 && objectName?.toLowerCase() !== 'lead') return omitHiddenUserFields(objectName, fields);
 
   const object = await prisma.objectDefinition.findFirst({ where: { id: objectId, tenantId }, select: { id: true, name: true } });
   if (!object) return fields;
 
   const virtualFields = getVirtualStandardFields(object);
-  if (fields.length === 0) return virtualFields;
-  if (object.name.toLowerCase() !== 'lead') return fields;
+  if (fields.length === 0) return omitHiddenUserFields(object.name, virtualFields);
+  if (object.name.toLowerCase() !== 'lead') return omitHiddenUserFields(object.name, fields);
 
   const fieldNames = new Set(fields.map((field) => field.name));
-  return [
+  return omitHiddenUserFields(object.name, [
     ...fields,
     ...virtualFields.filter((field) => !fieldNames.has(field.name)),
-  ];
+  ]);
 }
 
 export async function getPageLayout(tenantId: string, objectId: string, layoutName?: string) {

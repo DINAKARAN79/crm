@@ -17,6 +17,8 @@ import {
   sourceEnumValue,
   type LeadEnquiryInput,
 } from '../services/enquiryProcessing';
+import { importUserRows } from '../services/userImport';
+import { ensureUserObjectOnce } from '../services/userObject';
 
 const router = Router();
 router.use(authenticate);
@@ -433,6 +435,7 @@ router.post('/import', requirePermission('DATA_IMPORT'), async (req: AuthRequest
       return res.status(400).json({ success: false, error: 'CSV content is required' });
     }
 
+    if (objectName.trim().toLowerCase() === 'user') await ensureUserObjectOnce(req.tenantId!);
     const object = await getObjectDefinition(req.tenantId!, objectName.trim());
     if (!object) return res.status(404).json({ success: false, error: 'Object not found' });
     const availableFields = (await getFieldDefinitions(req.tenantId!, object.id) as Array<{ name: string; label?: string; required: boolean; isActive: boolean; isSystemField: boolean }>).filter((field) => field.isActive && !field.isSystemField);
@@ -459,6 +462,25 @@ router.post('/import', requirePermission('DATA_IMPORT'), async (req: AuthRequest
     if (missingCsvFields.length > 0) {
       return res.status(400).json({ success: false, error: `CSV is missing selected fields: ${missingCsvFields.join(', ')}` });
     }
+    if (object.name.toLowerCase() === 'user') {
+      const userImport = await importUserRows({
+        tenantId: req.tenantId!,
+        actorId: req.user!.id,
+        rows,
+      });
+      if (userImport.importedCount === 0 && userImport.importErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: userImport.importErrors[0].error,
+          data: { count: 0, errors: userImport.importErrors, rowResults: userImport.rowResults },
+        });
+      }
+      return res.status(201).json({
+        success: true,
+        data: { count: userImport.importedCount, errors: userImport.importErrors, rowResults: userImport.rowResults },
+      });
+    }
+
     const invalidRequiredRows = rows.map((row, index) => ({
       index,
       fields: requiredFields.filter((field) => !String(row[field] ?? '').trim()),

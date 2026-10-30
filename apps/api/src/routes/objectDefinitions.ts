@@ -7,9 +7,14 @@ import {
   getObjectDefinition,
   invalidateCache,
 } from '../services/metadata';
+import { denyUnlessUserObjectAdmin, isUserObjectName } from '../services/userObjectAccess';
 
 const router = Router();
 router.use(authenticate);
+router.use('/:name', (req: AuthRequest, res: Response, next) => {
+  if (denyUnlessUserObjectAdmin(req, res)) return;
+  next();
+});
 
 const SUPER_ADMIN_ONLY_OBJECTS = new Set(['company', 'companiesapi']);
 
@@ -21,9 +26,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const { includeInactive } = req.query;
     const objects = await getObjectDefinitions(req.tenantId!, includeInactive === 'true');
-    const visibleObjects = req.user!.isSuperAdmin
-      ? objects
-      : objects.filter((object: { name: string }) => !isSuperAdminOnlyObject(object.name));
+    const visibleObjects = objects.filter((object: { name: string }) => {
+      if (!req.user!.isSuperAdmin && isSuperAdminOnlyObject(object.name)) return false;
+      if (isUserObjectName(object.name) && !req.user!.isSuperAdmin && !req.user!.isAdmin) return false;
+      return true;
+    });
     res.json({ success: true, data: visibleObjects });
   } catch (error) {
     console.error('Get objects error:', error);

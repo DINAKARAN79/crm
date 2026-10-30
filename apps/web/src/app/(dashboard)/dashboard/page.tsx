@@ -18,6 +18,8 @@ import Link from "next/link";
 import { analyticsApi, followUpApi, activityApi, homepageApi } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { formatDate } from "@/lib/date-format";
+import { rememberHomeProfile, userHomePath } from "@/lib/user-home-path";
+import { ActiveUsersCard } from "@/components/crm/active-users-card";
 
 interface HomepageWidgetLayout {
   id: string;
@@ -51,6 +53,7 @@ const isHomepageWidgetLayout = (item: unknown): item is HomepageWidgetLayout => 
 export default function HomePage() {
   const {
     user,
+    tenant,
     profile,
     roles = [],
     isSuperAdmin,
@@ -74,18 +77,11 @@ export default function HomePage() {
   const requestedHomepageId = searchParams.get("homepage");
 
   React.useEffect(() => {
-    if (authLoading || requestedHomepageId || !profile?.id || !profile.name) return;
-    const profileSlug = profile.name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    const profileParams = new URLSearchParams({
-      profileId: profile.id,
-      profileLabel: profile.name,
-    });
-    router.replace(`/profiles/${profileSlug}?${profileParams}`);
-  }, [authLoading, profile?.id, profile?.name, requestedHomepageId, router]);
+    if (authLoading || requestedHomepageId || !profile?.id || !profile.name || !user?.id) return;
+    if (!tenant?.name && !tenant?.slug) return;
+    rememberHomeProfile({ id: profile.id, name: profile.name });
+    router.replace(userHomePath(tenant, user.id));
+  }, [authLoading, profile?.id, profile?.name, requestedHomepageId, router, tenant, user?.id]);
 
   const fetchDashboardData = React.useCallback(async (homepageId: string | null, isCurrent: () => boolean = () => true) => {
     setIsLoading(true);
@@ -283,6 +279,8 @@ export default function HomePage() {
           {homepageName}
         </div>
       </div>
+
+      {hasAdminHomeAccess && <ActiveUsersCard />}
 
       <div
         className={hasCustomLayout ? "relative min-h-0" : "space-y-6"}

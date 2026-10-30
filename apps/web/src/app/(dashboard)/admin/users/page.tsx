@@ -65,9 +65,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { userApi, profileApi, newPermissionSetApi, userPermissionApi, effectivePermissionApi, permissionApi } from "@/lib/api";
+import { LoggedInBadge } from "@/components/crm/logged-in-badge";
 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { normalizeUserPhone } from "@dct-crm/shared";
 
 import {
   Plus,
@@ -101,6 +103,8 @@ interface User {
   profile: { id: string; name: string } | null;
   roles: Array<{ role: { id: string; name: string } }>;
   isActive: boolean;
+  isLoggedIn?: boolean;
+  lastSeenAt?: string | null;
   status: "active" | "inactive";
   createdAt: string;
 }
@@ -128,7 +132,7 @@ const statusColors: Record<string, string> = {
 
 export default function UsersPage() {
   const router = useRouter();
-  const { user: currentUser, refresh: refreshAuth } = useAuth();
+  const { user: currentUser, refresh: refreshAuth, tenant } = useAuth();
   const { toast } = useToast();
 
   const [users, setUsers] = React.useState<User[]>([]);
@@ -178,6 +182,8 @@ export default function UsersPage() {
         profile: u.profile || null,
         roles: u.roles || [],
         isActive: u.isActive ?? true,
+        isLoggedIn: Boolean(u.isLoggedIn),
+        lastSeenAt: u.lastSeenAt || null,
         status: u.isActive ? "active" : "inactive",
         createdAt: u.createdAt,
       }));
@@ -205,16 +211,18 @@ export default function UsersPage() {
     });
   }, [fetchUsers, toast]);
 
+  const [onlineOnly, setOnlineOnly] = React.useState(false);
   const filteredUsers = React.useMemo(() => {
-    if (!searchQuery) return users;
+    const source = onlineOnly ? users.filter((user) => user.isLoggedIn) : users;
+    if (!searchQuery) return source;
     const q = searchQuery.toLowerCase();
-    return users.filter(
+    return source.filter(
       (u) =>
         u.name?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
         u.phone?.toLowerCase().includes(q)
     );
-  }, [users, searchQuery]);
+  }, [users, searchQuery, onlineOnly]);
 
   const openCreateDialog = () => {
     setDialogMode("create");
@@ -236,9 +244,12 @@ export default function UsersPage() {
     setDialogOpen(true);
   };
 
+  const phoneCheck = normalizeUserPhone(formData.phone, tenant?.country);
+  const phoneError = "error" in phoneCheck ? phoneCheck.error : "";
+
   const handleSave = async () => {
-    if (!formData.name || !formData.email) {
-      toast({ title: "Validation", description: "Name and Email are required", variant: "destructive" as any });
+    if (!formData.name || !formData.email || phoneError) {
+      toast({ title: "Validation", description: phoneError || "Name and Email are required", variant: "destructive" as any });
       return;
     }
     try {
@@ -252,7 +263,7 @@ export default function UsersPage() {
           email: formData.email,
           firstName,
           lastName,
-          phone: formData.phone || undefined,
+          phone: formData.phone.trim(),
           roleIds: [], // Will be assigned later
           profileId: formData.profile || undefined,
         });
@@ -261,7 +272,7 @@ export default function UsersPage() {
         await userApi.update(selectedUser.id, {
           firstName,
           lastName,
-          phone: formData.phone || undefined,
+          phone: formData.phone.trim(),
           profileId: formData.profile || null,
         });
         toast({ title: "Success", description: "User updated successfully" });
@@ -270,7 +281,7 @@ export default function UsersPage() {
       setFormData(emptyForm);
       fetchUsers();
     } catch (err: any) {
-      toast({ title: "Error", description: err?.message || "Operation failed", variant: "destructive" as any });
+      toast({ title: "Error", description: err?.response?.data?.error || err?.message || "Operation failed", variant: "destructive" as any });
     } finally {
       setSaving(false);
     }
@@ -500,6 +511,10 @@ export default function UsersPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
+              <label className="mt-2 flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={onlineOnly} onChange={(event) => setOnlineOnly(event.target.checked)} />
+                Online users only
+              </label>
             </div>
           </div>
         </CardHeader>
@@ -527,6 +542,7 @@ export default function UsersPage() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Profile</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Is Logged In</TableHead>
                     <TableHead>Created Date</TableHead>
                     <TableHead className="w-[70px]">Actions</TableHead>
                   </TableRow>
@@ -544,6 +560,9 @@ export default function UsersPage() {
                         <Badge className={statusColors[user.status] || statusColors.active}>
                           {user.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <LoggedInBadge online={Boolean(user.isLoggedIn)} lastSeenAt={user.lastSeenAt} />
                       </TableCell>
                       <TableCell>
                         {user.createdAt ? formatDate(user.createdAt) : "-"}
@@ -693,13 +712,15 @@ export default function UsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Phone <span className="text-destructive">*</span></Label>
                 <Input
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => setFormData((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="Enter phone number"
+                  placeholder="+91 98765 43210"
+                  aria-invalid={Boolean(phoneError)}
                 />
+                {phoneError && <p className="text-sm text-destructive">{phoneError}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Profile</Label>
@@ -742,7 +763,7 @@ export default function UsersPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="button" onClick={() => void handleSave()} disabled={saving || Boolean(phoneError) || !formData.name.trim() || !formData.email.trim()}>
               {saving ? "Saving..." : dialogMode === "create" ? "Create" : "Save Changes"}
             </Button>
           </DialogFooter>

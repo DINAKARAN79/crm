@@ -8,7 +8,7 @@ import { useRouter, useParams } from "next/navigation";
 
 import { useAuth } from "@/contexts/auth-context";
 
-import { companyApi, fetchAuthenticatedImage } from "@/lib/api";
+import { companyApi, fetchAuthenticatedImage, presenceApi } from "@/lib/api";
 
 import { CompanyImpersonationPanel, CompanySetupHomeButton } from "@/components/crm/company-setup-home";
 
@@ -128,6 +128,29 @@ interface CompanyDetails {
     leads: number;
     projects: number;
   };
+}
+
+function CompanyOnlineCount({ tenantId }: { tenantId: string }) {
+  const [label, setLabel] = React.useState("Users online now: —");
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await presenceApi.companyCounts();
+        const row = (response.data.data || []).find((item: { tenantId: string }) => item.tenantId === tenantId);
+        if (!cancelled) setLabel(`Users online now: ${row?.onlineCount ?? 0} / ${row?.totalUsers ?? 0}`);
+      } catch {
+        if (!cancelled) setLabel("Users online now: —");
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [tenantId]);
+  return <p className="text-sm text-emerald-700">{label}</p>;
 }
 
 export default function CompanyDetailsPage() {
@@ -395,6 +418,7 @@ export default function CompanyDetailsPage() {
           <div>
             <h1 className="text-xl font-semibold">{company.name}</h1>
             <p className="text-muted-foreground">{company.companyCode}</p>
+            <CompanyOnlineCount tenantId={company.id} />
           </div>
         </div>
         <div className="flex items-center gap-2">

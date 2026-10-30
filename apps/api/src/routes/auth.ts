@@ -1,13 +1,29 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@dct-crm/db';
 import { loginSchema } from '@dct-crm/shared';
 import jwt from 'jsonwebtoken';
 import { generateToken, authenticate, AuthRequest } from '../middleware/auth';
+import {
+  allowHeartbeat,
+  endSessionById,
+  endSessionBySecret,
+  getPresenceSettings,
+  hashSessionSecret,
+  isSessionOnline,
+  maskIp,
+  newSessionSecret,
+  openUserSession,
+  markSessionStale,
+  touchUserSession,
+} from '../services/userPresence';
 import { endImpersonation, impersonationExpirySeconds } from '../services/impersonation';
 import { EffectivePermissionService } from '../services/effectivePermissions';
 
 const router = Router();
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, standardHeaders: true, legacyHeaders: false });
+const heartbeatLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 
 function toObjectAccessKey(moduleName: string): string {
   const cleaned = (moduleName || '').trim();
@@ -50,7 +66,7 @@ function buildObjectPermissionMap(effectivePermissions: Array<{ name: string; mo
   return permissions;
 }
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', loginLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
     const normalizedEmail = email.trim().toLowerCase();
@@ -113,9 +129,14 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+    const sessionSecret = newSessionSecret();
+    const loginAt = Date.now();
+    await openUserSession({
+      userId: user.id,
+      tenantId: user.tenantId,
+      sessionSecret,
+      req,
+      isImpersonation: false,
     });
 
     const token = generateToken({
@@ -123,7 +144,8 @@ router.post('/login', async (req: Request, res: Response) => {
       email: user.email,
       tenantId: user.tenantId,
       isSuperAdmin: user.isSuperAdmin,
-      loginAt: Date.now(),
+      loginAt,
+      sessionId: sessionSecret,
     });
 
     const effectivePerms = await EffectivePermissionService.getEffectivePermissions(user.id);
@@ -210,10 +232,12 @@ router.post('/login', async (req: Request, res: Response) => {
 
 router.post('/logout', async (req: Request, res: Response) => {
   const header = req.headers.authorization;
-  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
+  const bodyToken = typeof req.body?.token === 'string' ? req.body.token : undefined;
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : bodyToken;
   if (token && process.env.JWT_SECRET) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { isImpersonation?: boolean; impersonationId?: string; id?: string; isSuperAdmin?: boolean };
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { isImpersonation?: boolean; impersonationId?: string; id?: string; isSuperAdmin?: boolean; sid?: string };
+      if (decoded.sid) await endSessionBySecret(decoded.sid, 'LOGOUT');
       if (decoded.isImpersonation && decoded.impersonationId) {
         await endImpersonation(decoded.impersonationId, 'logout');
       } else if (decoded.isSuperAdmin && decoded.id) {
@@ -232,8 +256,21 @@ router.post('/logout', async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
-router.post('/refresh', authenticate, (req: AuthRequest, res: Response) => {
+router.post('/refresh', authenticate, async (req: AuthRequest, res: Response) => {
   const impersonation = req.impersonation;
+  const sessionSecret = req.sessionSecret || newSessionSecret();
+  try {
+    const touched = await touchUserSession({
+      userId: req.user!.id,
+      tenantId: impersonation ? impersonation.tenantId : req.user!.tenantId,
+      sessionSecret,
+      req,
+      isImpersonation: Boolean(impersonation),
+    });
+    if (touched.blocked) return res.status(401).json({ success: false, error: 'Session ended' });
+  } catch (error) {
+    console.error('Session refresh error', error instanceof Error ? error.name : 'error');
+  }
   const expiresIn = impersonation
     ? impersonationExpirySeconds(impersonation.hardExpiresAt)
     : '15m' as const;
@@ -244,11 +281,92 @@ router.post('/refresh', authenticate, (req: AuthRequest, res: Response) => {
     isSuperAdmin: impersonation ? false : req.user!.isSuperAdmin,
     impersonatedBy: req.user!.impersonatedBy,
     loginAt: req.sessionLoginAt,
+    sessionId: sessionSecret,
     isImpersonation: Boolean(impersonation),
     impersonationId: impersonation?.id,
     viewOnly: impersonation?.viewOnly,
   }, expiresIn);
   res.json({ success: true, data: { token } });
+});
+
+router.post('/leave', async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : undefined;
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { sid?: string };
+      if (decoded.sid) await markSessionStale(decoded.sid);
+    } catch {
+      // A closed tab can send an expired token. The idle sweep still applies.
+    }
+  }
+  res.json({ success: true });
+});
+
+router.post('/heartbeat', heartbeatLimiter, authenticate, async (req: AuthRequest, res: Response) => {
+  const settings = await getPresenceSettings(req.impersonation?.tenantId || req.user!.tenantId);
+  if (!allowHeartbeat(req.user!.id)) {
+    return res.json({ success: true, data: { skipped: true, nextInMs: settings.heartbeatIntervalSeconds * 1000 } });
+  }
+  const sessionSecret = req.sessionSecret || newSessionSecret();
+  const impersonation = req.impersonation;
+  try {
+    const touched = await touchUserSession({
+      userId: req.user!.id,
+      tenantId: impersonation ? impersonation.tenantId : req.user!.tenantId,
+      sessionSecret,
+      req,
+      isImpersonation: Boolean(impersonation),
+    });
+    if (touched.blocked) return res.status(401).json({ success: false, error: 'Session ended' });
+  } catch (error) {
+    console.error('Heartbeat error', error instanceof Error ? error.name : 'error');
+    return res.status(500).json({ success: false, error: 'Heartbeat failed' });
+  }
+  const token = req.sessionSecret ? undefined : generateToken({
+    id: req.user!.id,
+    email: req.user!.email,
+    tenantId: impersonation ? impersonation.tenantId : req.user!.tenantId,
+    isSuperAdmin: impersonation ? false : req.user!.isSuperAdmin,
+    impersonatedBy: req.user!.impersonatedBy,
+    loginAt: req.sessionLoginAt,
+    sessionId: sessionSecret,
+    isImpersonation: Boolean(impersonation),
+    impersonationId: impersonation?.id,
+    viewOnly: impersonation?.viewOnly,
+  }, impersonation ? impersonationExpirySeconds(impersonation.hardExpiresAt) : '15m');
+  res.json({ success: true, data: { nextInMs: settings.heartbeatIntervalSeconds * 1000, ...(token ? { token } : {}) } });
+});
+
+router.get('/sessions', authenticate, async (req: AuthRequest, res: Response) => {
+  const currentHash = req.sessionSecret ? hashSessionSecret(req.sessionSecret) : '';
+  const settings = await getPresenceSettings(req.user!.tenantId);
+  const now = new Date();
+  const showFullIp = Boolean(req.user?.isAdmin || req.user?.isSuperAdmin);
+  const rows = await prisma.userSession.findMany({
+    where: { userId: req.user!.id, tenantId: req.user!.tenantId, endedAt: null, isImpersonation: false },
+    orderBy: { lastSeenAt: 'desc' },
+    select: { id: true, sessionTokenHash: true, browser: true, os: true, deviceType: true, ipAddress: true, createdAt: true, lastSeenAt: true },
+  });
+  res.json({
+    success: true,
+    data: rows
+      .filter((row) => isSessionOnline({ endedAt: null, isImpersonation: false, lastSeenAt: row.lastSeenAt }, now, settings.idleTimeoutSeconds * 1000))
+      .map(({ sessionTokenHash, ipAddress, ...row }) => ({
+        ...row,
+        ipAddress: showFullIp ? ipAddress : maskIp(ipAddress),
+        current: sessionTokenHash === currentHash,
+      })),
+  });
+});
+
+router.post('/sessions/:id/end', authenticate, async (req: AuthRequest, res: Response) => {
+  const owned = await prisma.userSession.findFirst({
+    where: { id: req.params.id, userId: req.user!.id, tenantId: req.user!.tenantId, endedAt: null },
+    select: { id: true },
+  });
+  if (!owned) return res.status(404).json({ success: false, error: 'Session not found' });
+  await endSessionById(req.params.id, req.user!.tenantId, 'LOGOUT');
+  res.json({ success: true });
 });
 
 router.post('/stop-impersonation', authenticate, async (req: AuthRequest, res: Response) => {
@@ -284,7 +402,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         phone: true,
         avatar: true,
         isSuperAdmin: true,
-        tenant: { select: { id: true, name: true, slug: true, logo: true, companyStartDate: true, companyExpiryDate: true, isActive: true } },
+        tenant: { select: { id: true, name: true, slug: true, logo: true, country: true, companyStartDate: true, companyExpiryDate: true, isActive: true } },
         profile: { select: { id: true, name: true, description: true, isAdmin: true, leadStatusAccess: true } },
         roles: {
           include: {

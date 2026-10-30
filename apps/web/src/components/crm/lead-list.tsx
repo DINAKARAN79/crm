@@ -50,6 +50,9 @@ interface LeadListProps {
   onPageChange?: (page: number) => void;
   canDelete?: boolean;
   onDelete?: (lead: Lead) => void | Promise<void>;
+  canCall?: boolean;
+  onCall?: (lead: Lead) => void;
+  callingLeadId?: string | null;
   sorting?: { id: string; desc: boolean }[];
   onSortingChange?: (sorting: { id: string; desc: boolean }[]) => void;
 }
@@ -67,9 +70,15 @@ const statusColors: Record<string, string> = {
 export function getLeadColumns({
   canDelete = false,
   onDelete,
+  canCall = false,
+  onCall,
+  callingLeadId = null,
 }: {
   canDelete?: boolean;
   onDelete?: (lead: Lead) => void | Promise<void>;
+  canCall?: boolean;
+  onCall?: (lead: Lead) => void;
+  callingLeadId?: string | null;
 } = {}): ColumnDef<Lead>[] {
   return [
     {
@@ -114,12 +123,29 @@ export function getLeadColumns({
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => (
-        <span className="inline-flex items-center gap-2 whitespace-nowrap text-[#1479a8]">
-          <Phone className="h-3.5 w-3.5 fill-sky-100" />
-          {row.original.phone || "—"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const phone = row.original.phone;
+        const calling = callingLeadId === row.original.id;
+        if (!canCall || !phone || !onCall) {
+          return (
+            <span className="inline-flex items-center gap-2 whitespace-nowrap text-[#1479a8]">
+              <Phone className="h-3.5 w-3.5 fill-sky-100" />
+              {phone || "—"}
+            </span>
+          );
+        }
+        return (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 whitespace-nowrap text-[#1479a8] hover:underline disabled:opacity-60"
+            disabled={Boolean(callingLeadId)}
+            onClick={() => onCall(row.original)}
+          >
+            <Phone className="h-3.5 w-3.5 fill-sky-100" />
+            {calling ? "Calling..." : phone}
+          </button>
+        );
+      },
     },
     {
       accessorKey: "source",
@@ -177,6 +203,18 @@ export function getLeadColumns({
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
+              {canCall && onCall && lead.phone && (
+                <DropdownMenuItem
+                  disabled={Boolean(callingLeadId)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onCall(lead);
+                  }}
+                >
+                  <Phone className="mr-2 h-4 w-4" />
+                  {callingLeadId === lead.id ? "Calling..." : "Call"}
+                </DropdownMenuItem>
+              )}
               {canDeleteLead && (
                 <DropdownMenuItem
                   className="text-destructive"
@@ -205,12 +243,15 @@ export function LeadList({
   onPageChange,
   canDelete = false,
   onDelete,
+  canCall = false,
+  onCall,
+  callingLeadId = null,
   sorting,
   onSortingChange,
 }: LeadListProps) {
   const columns = React.useMemo(
-    () => getLeadColumns({ canDelete, onDelete }),
-    [canDelete, onDelete],
+    () => getLeadColumns({ canDelete, onDelete, canCall, onCall, callingLeadId }),
+    [canDelete, onDelete, canCall, onCall, callingLeadId],
   );
 
   return (

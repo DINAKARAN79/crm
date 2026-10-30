@@ -1,108 +1,249 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { prisma } from '@dct-crm/db';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { requireSuperAdmin } from '../middleware/superAdmin';
-import { auditLog } from '../middleware/audit';
-import {
-  ApiKeyAuthError,
-  COMPANY_API_SCOPES,
-  createCompanyApiKey,
-  listCompanyApiKeys,
-  revokeCompanyApiKey,
-  rotateCompanyApiKey,
-} from '../services/apiKeys';
+import { ApiKeyAuthError, ApiKeyEncryptionError, DELETE_API_SCOPES, generateCompanyApiKey, getCompanyApiKey, getSetupCompanyApiKey, revealCompanyApiKey, revealSetupCompanyApiKey, revokeCompanyApiKey, rotateCompanyApiKey, updateCompanyApiKeyScopes } from '../services/apiKeys';
 
-const router = Router({ mergeParams: true });
+const superAdminRouter = Router({ mergeParams: true });
+const setupRouter = Router();
 
-router.use(authenticate);
-router.use(requireSuperAdmin);
+function noStore(_req: AuthRequest, res: Response, next: NextFunction) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+}
 
-const createSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(80),
-  scopes: z.array(z.enum(COMPANY_API_SCOPES)).min(1, 'Select at least one scope'),
-  rateLimitPerMinute: z.number().int().min(1).max(10000).optional(),
-  ipAllowlist: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
-  expiresAt: z.string().datetime().nullable().optional(),
-});
+function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.apiKey && req.user?.isSuperAdmin) return next();
+  return res.status(403).json({ success: false, error: 'Super Admin access is required' });
+}
 
-function tenantIdOf(req: AuthRequest) {
-  return String(req.params.tenantId || '');
+function requireCompanyAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.apiKey && !req.user?.isSuperAdmin && req.user?.isAdmin && !req.impersonation && !req.user.impersonatedBy) {
+    return next();
+  }
+  return res.status(403).json({ success: false, error: 'Company Admin access is required' });
+}
+
+function setupTenantId(req: AuthRequest) {
+  return req.user!.tenantId;
+}
+
+function rejectForeignSetupTenant(req: AuthRequest, res: Response, next: NextFunction) {
+  const requested = typeof req.query.tenantId === 'string' ? req.query.tenantId.trim() : '';
+  if (requested && !req.user?.isSuperAdmin && requested !== req.user?.tenantId) {
+    return res.status(403).json({ success: false, error: "You cannot access another company's API key" });
+  }
+  return next();
 }
 
 function sendError(res: Response, error: unknown) {
   if (error instanceof ApiKeyAuthError) {
-    return res.status(error.status).json({ success: false, error: error.message });
+    return res.status(error.status).json({ success: false, error: error.message, code: error.code });
+  }
+  if (error instanceof ApiKeyEncryptionError) {
+    return res.status(503).json({ success: false, error: error.message, code: 'API_KEY_ENCRYPTION_UNAVAILABLE' });
   }
   if (error instanceof z.ZodError) {
-    return res.status(400).json({ success: false, error: error.issues[0]?.message || 'Invalid API key' });
+    return res.status(400).json({ success: false, error: error.issues[0]?.message || 'Invalid request' });
   }
-  console.error('Company API key error:', error);
-  return res.status(500).json({ success: false, error: 'Failed to update API keys' });
+  console.error('Company API key operation failed:', error instanceof Error ? error.name : 'unknown error');
+  return res.status(500).json({ success: false, error: 'Failed to manage the company API key' });
 }
 
-router.get('/', async (req: AuthRequest, res: Response) => {
-  try {
-    const data = await listCompanyApiKeys(tenantIdOf(req));
-    res.json({ success: true, data });
-  } catch (error) {
-    sendError(res, error);
-  }
-});
+async function writeKeyAudit(tenantId: string, userId: string, action: string, keyId: string, ipAddress: string | undefined) {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId,
+      action,
+      objectType: 'ApiKey',
+      objectId: keyId,
+      newValues: {
+        companyId: tenantId,
+        companyName: tenant?.name || null,
+        occurredAt: new Date().toISOString(),
+      },
+      ipAddress,
+    },
+  });
+}
 
-router.post('/', async (req: AuthRequest, res: Response) => {
+superAdminRouter.use(authenticate, requireSuperAdmin);
+
+superAdminRouter.get('/', noStore, async (req: AuthRequest, res: Response) => {
   try {
-    const body = createSchema.parse(req.body || {});
-    const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
-    if (expiresAt && expiresAt.getTime() <= Date.now()) {
-      return res.status(400).json({ success: false, error: 'Expiry must be in the future' });
-    }
-    const created = await createCompanyApiKey({
-      tenantId: tenantIdOf(req),
-      name: body.name,
-      scopes: body.scopes,
-      rateLimitPerMinute: body.rateLimitPerMinute ?? 120,
-      ipAllowlist: body.ipAllowlist ?? [],
-      expiresAt,
-      createdById: req.user!.id,
+    const data = await getCompanyApiKey(String(req.params.tenantId));
+    return res.json({
+      success: true,
+      data: { ...data, maskedKey: data.apiKey ? 'dct_live_••••••••' : null },
     });
-    await auditLog(tenantIdOf(req), req.user!.id, 'API_KEY_CREATED', 'ApiKey', created.record.id, undefined, {
-      name: created.record.name,
-      keyPrefix: created.record.keyPrefix,
-      scopes: created.record.scopes,
-    }, req.ip);
-    res.status(201).json({ success: true, data: created.record, apiKey: created.apiKey });
   } catch (error) {
     sendError(res, error);
   }
 });
 
-router.post('/:keyId/revoke', async (req: AuthRequest, res: Response) => {
+const revealRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const revealSchema = z.object({
+  password: z.string().min(1).max(256),
+  purpose: z.enum(['show', 'copy']).default('show'),
+});
+
+superAdminRouter.post('/reveal', noStore, revealRateLimit, async (req: AuthRequest, res: Response) => {
   try {
-    const data = await revokeCompanyApiKey(tenantIdOf(req), req.params.keyId);
-    await auditLog(tenantIdOf(req), req.user!.id, 'API_KEY_REVOKED', 'ApiKey', data.id, undefined, {
-      name: data.name,
-      keyPrefix: data.keyPrefix,
-    }, req.ip);
-    res.json({ success: true, data });
+    const { password, purpose } = revealSchema.parse(req.body || {});
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { passwordHash: true, isSuperAdmin: true, isActive: true },
+    });
+    if (!user?.isSuperAdmin || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ success: false, error: 'Password verification failed' });
+    }
+
+    const tenantId = String(req.params.tenantId);
+    const revealed = await revealCompanyApiKey(tenantId);
+    await writeKeyAudit(
+      tenantId,
+      req.user!.id,
+      purpose === 'copy' ? 'API_KEY_COPIED' : 'API_KEY_REVEALED',
+      revealed.record.id,
+      req.ip,
+    );
+    return res.json({ success: true, data: revealed.record, apiKey: revealed.apiKey });
   } catch (error) {
-    sendError(res, error);
+    return sendError(res, error);
   }
 });
 
-router.post('/:keyId/rotate', async (req: AuthRequest, res: Response) => {
+superAdminRouter.post('/generate', noStore, async (req: AuthRequest, res: Response) => {
   try {
-    const rotated = await rotateCompanyApiKey(tenantIdOf(req), req.params.keyId, req.user!.id);
-    await auditLog(tenantIdOf(req), req.user!.id, 'API_KEY_ROTATED', 'ApiKey', rotated.record.id, {
-      previousId: rotated.previousId,
-    }, {
-      name: rotated.record.name,
-      keyPrefix: rotated.record.keyPrefix,
-      scopes: rotated.record.scopes,
-    }, req.ip);
-    res.json({ success: true, data: rotated.record, apiKey: rotated.apiKey });
+    const tenantId = String(req.params.tenantId);
+    const generated = await generateCompanyApiKey(tenantId, req.user!.id);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_GENERATED', generated.record.id, req.ip);
+    return res.status(201).json({ success: true, data: generated.record });
   } catch (error) {
-    sendError(res, error);
+    return sendError(res, error);
   }
 });
 
-export default router;
+superAdminRouter.post('/rotate', noStore, async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = String(req.params.tenantId);
+    const current = await getCompanyApiKey(tenantId);
+    if (!current.apiKey) return res.status(404).json({ success: false, error: 'No API key exists for this company' });
+    const rotated = await rotateCompanyApiKey(tenantId, current.apiKey.id, req.user!.id);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_ROTATED', rotated.record.id, req.ip);
+    return res.json({ success: true, data: rotated.record });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+superAdminRouter.post('/revoke', async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = String(req.params.tenantId);
+    const current = await getCompanyApiKey(tenantId);
+    if (!current.apiKey) return res.status(404).json({ success: false, error: 'No API key exists for this company' });
+    const revoked = await revokeCompanyApiKey(tenantId, current.apiKey.id);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_REVOKED', revoked.id, req.ip);
+    return res.json({ success: true, data: revoked });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+const scopesSchema = z.object({
+  allowDelete: z.boolean(),
+});
+
+superAdminRouter.patch('/scopes', async (req: AuthRequest, res: Response) => {
+  try {
+    const { allowDelete } = scopesSchema.parse(req.body || {});
+    const tenantId = String(req.params.tenantId);
+    const current = await getCompanyApiKey(tenantId);
+    if (!current.apiKey) return res.status(404).json({ success: false, error: 'No API key exists for this company' });
+    const scopes = allowDelete
+      ? [...new Set([...current.apiKey.scopes, ...DELETE_API_SCOPES])]
+      : current.apiKey.scopes.filter((scope) => !DELETE_API_SCOPES.includes(scope));
+    const updated = await updateCompanyApiKeyScopes(tenantId, current.apiKey.id, scopes);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_SCOPES_UPDATED', updated.id, req.ip);
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+setupRouter.use(authenticate, requireCompanyAdmin, rejectForeignSetupTenant);
+setupRouter.get('/api-key', noStore, async (req: AuthRequest, res: Response) => {
+  try {
+    return res.json({ success: true, data: await getSetupCompanyApiKey(setupTenantId(req)) });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+setupRouter.post('/api-key/reveal-once', noStore, async (req: AuthRequest, res: Response) => {
+  try {
+    const revealed = await revealSetupCompanyApiKey(setupTenantId(req), req.user!.id, req.ip);
+    return res.json({ success: true, data: revealed.record, apiKey: revealed.apiKey });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+setupRouter.post('/api-key/rotate', noStore, async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = setupTenantId(req);
+    const current = await getSetupCompanyApiKey(tenantId);
+    if (!current.apiKey) {
+      return res.status(404).json({ success: false, error: 'No API key exists for this company. Ask a Super Admin to generate one.' });
+    }
+    const rotated = await rotateCompanyApiKey(tenantId, current.apiKey.id, req.user!.id);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_ROTATED', rotated.record.id, req.ip);
+    return res.json({ success: true, data: rotated.record });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+setupRouter.post('/api-key/revoke', async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = setupTenantId(req);
+    const current = await getSetupCompanyApiKey(tenantId);
+    if (!current.apiKey) return res.status(404).json({ success: false, error: 'No API key exists for this company' });
+    const revoked = await revokeCompanyApiKey(tenantId, current.apiKey.id);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_REVOKED', revoked.id, req.ip);
+    return res.json({ success: true, data: revoked });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+setupRouter.patch('/api-key/scopes', async (req: AuthRequest, res: Response) => {
+  try {
+    const { allowDelete } = scopesSchema.parse(req.body || {});
+    const tenantId = setupTenantId(req);
+    const current = await getSetupCompanyApiKey(tenantId);
+    if (!current.apiKey) return res.status(404).json({ success: false, error: 'No API key exists for this company' });
+    const scopes = allowDelete
+      ? [...new Set([...current.apiKey.scopes, ...DELETE_API_SCOPES])]
+      : current.apiKey.scopes.filter((scope) => !DELETE_API_SCOPES.includes(scope));
+    const updated = await updateCompanyApiKeyScopes(tenantId, current.apiKey.id, scopes);
+    await writeKeyAudit(tenantId, req.user!.id, 'API_KEY_SCOPES_UPDATED', updated.id, req.ip);
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+export { setupRouter as setupCompanyApiKeyRouter };
+export default superAdminRouter;

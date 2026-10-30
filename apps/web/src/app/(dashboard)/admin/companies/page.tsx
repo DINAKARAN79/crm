@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/contexts/auth-context";
 
-import { companyApi, fetchAuthenticatedImage } from "@/lib/api";
+import { companyApi, fetchAuthenticatedImage, presenceApi } from "@/lib/api";
 import { CompanyApiReference } from "@/components/crm/api-topic-panel";
 
 import { Button } from "@/components/ui/button";
@@ -178,7 +178,7 @@ function CompaniesApiConsole({ onBack }: { onBack: () => void }) {
         </Card>
         <div className="space-y-4">
           {selectedCompany ? (
-            <CompanyApiReference tenantId={selectedCompany.id} companyName={selectedCompany.name} />
+            <CompanyApiReference tenantId={selectedCompany.id} companyName={selectedCompany.name} companyCode={selectedCompany.companyCode} />
           ) : !isLoading ? (
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Select a company to view its APIs.</CardContent></Card>
           ) : null}
@@ -205,6 +205,7 @@ export default function CompaniesPage() {
   const [sortBy, setSortBy] = React.useState("createdAt");
   const [sortOrder, setSortOrder] = React.useState("desc");
   const [statusTarget, setStatusTarget] = React.useState<Company | null>(null);
+  const [presenceCounts, setPresenceCounts] = React.useState<Record<string, { onlineCount: number; totalUsers: number }>>({});
 
   const fetchCompanies = React.useCallback(async () => {
     setIsLoading(true);
@@ -238,6 +239,28 @@ export default function CompaniesPage() {
     if (isApiView) return;
     fetchCompanies();
   }, [fetchCompanies, isApiView]);
+
+  React.useEffect(() => {
+    if (!isSuperAdmin || isApiView) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await presenceApi.companyCounts();
+        if (cancelled) return;
+        const next: Record<string, { onlineCount: number; totalUsers: number }> = {};
+        for (const row of response.data.data || []) next[row.tenantId] = row;
+        setPresenceCounts(next);
+      } catch {
+        if (!cancelled) setPresenceCounts({});
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isApiView, isSuperAdmin]);
 
   const handleStatusToggle = async () => {
     if (!statusTarget) return;
@@ -402,7 +425,10 @@ export default function CompaniesPage() {
                        company.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">{company._count?.users || 0}</td>
+                  <td className="px-4 py-3">
+                    <div>{company._count?.users || 0}</div>
+                    <div className="text-xs text-emerald-700">Users online now: {presenceCounts[company.id]?.onlineCount ?? 0} / {presenceCounts[company.id]?.totalUsers ?? company._count?.users ?? 0}</div>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDate(company.createdAt)}
                   </td>

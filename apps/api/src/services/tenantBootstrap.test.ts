@@ -8,12 +8,6 @@ describe('bootstrapTenant', () => {
   const adminRole = { id: 'admin-role' };
   const seededObjects: Array<{ id: string; label: string; name: string }> = [];
   const tx = {
-    profile: {
-      upsert: vi.fn()
-        .mockResolvedValueOnce(adminProfile)
-        .mockResolvedValueOnce(standardProfile),
-    },
-    role: { upsert: vi.fn().mockResolvedValue(adminRole) },
     permission: {
       createMany: vi.fn().mockResolvedValue({ count: 20 }),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -38,8 +32,12 @@ describe('bootstrapTenant', () => {
     fieldDefinition: {
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-      findFirst: vi.fn().mockResolvedValue({ id: 'stage-field' }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      findFirst: vi.fn(async ({ where }: { where?: { name?: string } }) => (
+        where?.name === 'bookingStage' ? { id: 'stage-field', required: true } : null
+      )),
     },
+    auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit' }) },
     tenant: {
       findUnique: vi.fn().mockResolvedValue({
         name: 'New Tenant',
@@ -63,7 +61,19 @@ describe('bootstrapTenant', () => {
     picklistValue: { createMany: vi.fn().mockResolvedValue({ count: 6 }) },
     pageLayout: {
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue({ id: 'existing-layout' }),
       createMany: vi.fn().mockResolvedValue({ count: 10 }),
+      create: vi.fn().mockResolvedValue({ id: 'user-layout' }),
+    },
+    profile: {
+      upsert: vi.fn()
+        .mockResolvedValueOnce(adminProfile)
+        .mockResolvedValueOnce(standardProfile),
+      findMany: vi.fn().mockResolvedValue([adminProfile]),
+    },
+    role: {
+      upsert: vi.fn().mockResolvedValue(adminRole),
+      findFirst: vi.fn().mockResolvedValue(adminRole),
     },
     profileObjectPermission: {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -120,6 +130,7 @@ describe('bootstrapTenant', () => {
       'FollowUp',
       'Activity',
       'CallDetail',
+      'User',
     ]);
     expect(tx.fieldDefinition.updateMany).toHaveBeenCalledWith({
       where: { tenantId: 'new-tenant', objectId: 'object-5' },

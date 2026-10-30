@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireSuperAdmin } from '../middleware/superAdmin';
 import { bootstrapTenant } from '../services/tenantBootstrap';
+import { issueDefaultApiKey } from '../services/apiKeys';
 
 const router = Router();
 
@@ -114,6 +115,7 @@ router.post('/tenants', requireSuperAdmin, async (req: AuthRequest, res: Respons
         },
       });
       await bootstrapTenant(tx, createdTenant.id, req.user!.id);
+      const issued = await issueDefaultApiKey(tx, createdTenant.id, req.user!.id);
       await tx.auditLog.create({
         data: {
           tenantId: createdTenant.id,
@@ -124,10 +126,33 @@ router.post('/tenants', requireSuperAdmin, async (req: AuthRequest, res: Respons
           newValues: { name: createdTenant.name, slug: createdTenant.slug },
         },
       });
-      return createdTenant;
+      await tx.auditLog.create({
+        data: {
+          tenantId: createdTenant.id,
+          userId: req.user!.id,
+          action: 'API_KEY_CREATED',
+          objectType: 'ApiKey',
+          objectId: issued.record.id,
+          newValues: { keyPrefix: issued.record.keyPrefix, name: issued.record.name },
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId: createdTenant.id,
+          userId: req.user!.id,
+          action: 'API_KEY_REVEALED',
+          objectType: 'ApiKey',
+          objectId: issued.record.id,
+          newValues: { companyId: createdTenant.id, occurredAt: new Date().toISOString() },
+          ipAddress: req.ip,
+        },
+      });
+      return { tenant: createdTenant, apiKey: issued.apiKey };
     });
 
-    res.status(201).json({ success: true, data: tenant });
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.status(201).json({ success: true, data: tenant.tenant, apiKey: tenant.apiKey });
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return res.status(400).json({ success: false, error: error.errors[0].message });

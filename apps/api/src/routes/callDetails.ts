@@ -9,6 +9,7 @@ import { applyCallLogStatusRule } from '../services/callLogStatus';
 import { followUpAccessWhere } from '../services/followUpAccess';
 import { tagLeadFollowUpEvents } from '../services/leadEventTagging';
 import { appendLeadProcessNote } from '../services/leadNotes';
+import { maskPhone } from '../services/clickToCall';
 
 const router = Router();
 router.use(authenticate);
@@ -56,7 +57,14 @@ router.get('/', authorize('Activity', 'read'), async (req: AuthRequest, res: Res
       orderBy: [{ startAt: 'desc' }, { createdAt: 'desc' }],
       take: 100,
     });
-    res.json({ success: true, data });
+    const maskNumbers = !req.user?.isAdmin && !req.user?.isSuperAdmin &&
+      Boolean((await prisma.telephonySetting.findUnique({ where: { tenantId: req.tenantId! }, select: { maskNumbers: true } }))?.maskNumbers);
+    res.json({
+      success: true,
+      data: maskNumbers
+        ? data.map((call) => ({ ...call, callTo: call.callTo ? maskPhone(call.callTo) : null }))
+        : data,
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: 'A valid leadId is required' });
@@ -82,7 +90,12 @@ router.get('/:id', authorize('Activity', 'read'), async (req: AuthRequest, res: 
     if (!(await canAccessLeadId(req.user!, call.leadId))) {
       return res.status(403).json({ success: false, error: 'You do not have access to this call' });
     }
-    res.json({ success: true, data: call });
+    const maskNumbers = !req.user?.isAdmin && !req.user?.isSuperAdmin &&
+      Boolean((await prisma.telephonySetting.findUnique({ where: { tenantId: req.tenantId! }, select: { maskNumbers: true } }))?.maskNumbers);
+    res.json({
+      success: true,
+      data: maskNumbers && call.callTo ? { ...call, callTo: maskPhone(call.callTo) } : call,
+    });
   } catch (error) {
     console.error('Get call details error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch call details' });

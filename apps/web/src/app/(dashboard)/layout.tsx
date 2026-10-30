@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { Breadcrumb, BreadcrumbLabels } from "@/components/layout/breadcrumb";
 import { Chatbot } from "@/components/ai/chatbot";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { impersonationMeta } from "@/lib/api";
 import { ImpersonationBanner } from "@/components/crm/impersonation-banner";
+import { PhoneRequiredBanner } from "@/components/crm/phone-required-banner";
+import { BizcallDialpadDock } from "@/components/crm/bizcall-dialpad-dock";
 
 function UserImpersonationBanner() {
   const { user, stopImpersonating } = useAuth();
@@ -93,7 +95,18 @@ function DashboardShell({
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const hideBreadcrumb = pathname === "/reports" || pathname.startsWith("/reports/");
+  const pathRoot = pathname.split("/").filter(Boolean)[0] || "";
+  const knownRoots = new Set([
+    "setup", "bookings", "reports", "leads", "admin", "site-visits", "follow-ups",
+    "projects", "units", "profiles", "tasks", "mis-approvals", "calendar",
+    "call-details", "dashboard", "dashboards", "cp-portal-accounts", "enquiries",
+    "home", "objects",
+  ]);
+  const hideBreadcrumb =
+    pathname === "/reports" ||
+    pathname.startsWith("/reports/") ||
+    pathname.startsWith("/profiles") ||
+    (Boolean(pathRoot) && !knownRoots.has(pathRoot));
   const standaloneReport =
     pathname.startsWith("/reports/") && pathname !== "/reports/new";
   const embedded = searchParams.get("embed") === "1";
@@ -103,6 +116,7 @@ function DashboardShell({
       <AuthProvider>
         <main className="min-w-0 max-w-full overflow-x-clip bg-background p-2">
           <ImpersonationBanner />
+          <PhoneRequiredBanner />
           <React.Suspense fallback={<div className="min-h-[40vh]" aria-hidden="true" />}>
             {children}
           </React.Suspense>
@@ -115,7 +129,7 @@ function DashboardShell({
     return (
       <AuthProvider>
         <div className="min-h-screen min-w-0 max-w-full bg-background">
-          <div className="p-4 pb-0"><ImpersonationBanner /></div>
+          <div className="p-4 pb-0"><ImpersonationBanner /><PhoneRequiredBanner /></div>
           <DashboardAccessGuard>
             <React.Suspense fallback={<div className="min-h-screen" aria-hidden="true" />}>
               {children}
@@ -129,6 +143,7 @@ function DashboardShell({
 
   return (
     <AuthProvider>
+      <BreadcrumbLabels>
       <div className="min-h-screen min-w-0 max-w-full bg-background">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="min-w-0 max-w-full overflow-x-clip lg:pl-14">
@@ -139,6 +154,7 @@ function DashboardShell({
             <ImpersonationBanner />
             {!hideBreadcrumb && <Breadcrumb className="mb-3" />}
             <UserImpersonationBanner />
+            <PhoneRequiredBanner />
             <DashboardAccessGuard>
               <React.Suspense fallback={<div className="min-h-[40vh]" aria-hidden="true" />}>
                 {children}
@@ -147,8 +163,10 @@ function DashboardShell({
           </main>
         </div>
         <Chatbot />
+        <BizcallDialpadDock />
         <Toaster />
       </div>
+      </BreadcrumbLabels>
     </AuthProvider>
   );
 }
